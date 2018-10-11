@@ -6,7 +6,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
-	"strings"
+	"os"
 	"time"
 )
 
@@ -41,9 +41,6 @@ var ErrExpired = fmt.Errorf("certififcate is expired")
 // ErrFuture indicates that a certificate NotBefore date is in the future
 var ErrFuture = fmt.Errorf("certificate is still not valid")
 
-// ErrInvalid is a generic error thrown on internal / other conditions
-var ErrInvalid = fmt.Errorf("invalid request")
-
 // ErrNil is an error thrown when a nil certificate pointer is evaluated
 var ErrNil = fmt.Errorf("nil certificate")
 
@@ -56,35 +53,33 @@ var ErrNoCerts = fmt.Errorf("no certificates to process")
 // certificate from.
 func ProcessCert(spec string) (Result, error) {
 
-	parts := strings.Split(spec, ":")
-
-	if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
-		conn, err := tls.Dial("tcp", spec, nil)
-		if err == nil {
-			defer conn.Close()
-
-			state := conn.ConnectionState()
-
-			r := Result{}
-
-			if len(state.PeerCertificates) == 0 {
-				return Result{Success: false, DaysLeft: -1}, ErrNoCerts
-			}
-
-			for _, c := range state.PeerCertificates {
-				r, err = Check(c)
-				if err != nil {
-					return r, err
-				}
-			}
-
-			return r, nil
-		}
-	} else {
+	if _, err := os.Stat(spec); err == nil {
 		return ReadFromFile(spec)
 	}
 
-	return Result{Success: false, DaysLeft: -1}, ErrInvalid
+	conn, err := tls.Dial("tcp", spec, nil)
+	if err == nil {
+		defer conn.Close()
+
+		state := conn.ConnectionState()
+
+		r := Result{}
+
+		if len(state.PeerCertificates) == 0 {
+			return Result{Success: false, DaysLeft: -1}, ErrNoCerts
+		}
+
+		for _, c := range state.PeerCertificates {
+			r, err = Check(c)
+			if err != nil {
+				return r, err
+			}
+		}
+
+		return r, nil
+	}
+
+	return Result{Success: false, DaysLeft: -1}, err
 }
 
 // ReadFromFile reads a certificate from a local file and returns the result of

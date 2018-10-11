@@ -6,7 +6,7 @@
 
 This tool simplifies handling of PEM certificates. It allows for easy filtering of certificates based on the days until expiration. It's use is reminiscent of the `grep` utility.
 
-Check whether a given certificate will expire _soon_, or within 10,000 days as in this example.
+Check whether a given certificate will expire _soon_, or within 10,000 days as in this example. Also whether the certificate is valid for the DNS name provided, is applicable:
 
 ```
 $ ccheck --min-days 10000 google.com:443 || echo The end is near
