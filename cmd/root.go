@@ -62,7 +62,9 @@ to support scripting applications.`,
 				}
 			}
 
-			fmt.Printf("%s\n", spec)
+			if !quiet {
+				fmt.Printf("%s\n", spec)
+			}
 		}
 
 		if errors > 0 {
