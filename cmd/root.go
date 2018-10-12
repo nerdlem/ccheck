@@ -25,7 +25,7 @@ import (
 )
 
 var minDays int
-var quiet bool
+var expired, quiet bool
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
@@ -57,12 +57,18 @@ to support scripting applications.`,
 			if minDays != 0 {
 				if minDays > r.DaysLeft {
 					fmt.Fprintf(os.Stderr, "%s: expires in %d days\n", spec, r.DaysLeft)
-					errors++
+					if expired {
+						if !quiet {
+							fmt.Printf("%s\n", spec)
+						}
+					} else {
+						errors++
+					}
 					continue
 				}
 			}
 
-			if !quiet {
+			if !quiet && !expired {
 				fmt.Printf("%s\n", spec)
 			}
 		}
@@ -88,6 +94,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	RootCmd.PersistentFlags().IntVar(&minDays, "min-days", 15, "Minimum days left")
 	RootCmd.PersistentFlags().BoolVar(&quiet, "quiet", false, "Supress passing cert spec listing on success")
+	RootCmd.PersistentFlags().BoolVar(&expired, "show-expired", false, "Match expired or close-to-expiry certs")
 }
 
 // initConfig reads in config file and ENV variables if set.
