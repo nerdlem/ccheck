@@ -23,11 +23,13 @@ type Result struct {
 	// Cert points to the certificate that was checked. This is useful to
 	// piggyback checks on certificates.
 	Cert *x509.Certificate
+	// Delay keeps track of how long it took to perform the certificate validation
+	Delay time.Duration
 }
 
 // String satisfies the Stringer interface
 func (r *Result) String() string {
-	res := fmt.Sprintf("Success=%v, DaysLeft=%d, cert is", r.Success, r.DaysLeft)
+	res := fmt.Sprintf("Success=%v, DaysLeft=%d, Delay=%0.3f cert is", r.Success, r.DaysLeft, r.Delay.Seconds())
 	if r.Cert == nil {
 		res = fmt.Sprintf("%s %s", res, "nil")
 	} else {
@@ -55,6 +57,8 @@ var ErrNoCerts = fmt.Errorf("no certificates to process")
 // certificate from.
 func ProcessCert(spec string) (Result, error) {
 
+	start := time.Now()
+
 	if _, err := os.Stat(spec); err == nil {
 		return ReadFromFile(spec)
 	}
@@ -68,20 +72,22 @@ func ProcessCert(spec string) (Result, error) {
 		r := Result{}
 
 		if len(state.PeerCertificates) == 0 {
-			return Result{Success: false, DaysLeft: -1}, ErrNoCerts
+			return Result{Success: false, DaysLeft: -1, Delay: time.Now().Sub(start)}, ErrNoCerts
 		}
 
 		for _, c := range state.PeerCertificates {
 			r, err = Check(c)
 			if err != nil {
+				r.Delay = time.Now().Sub(start)
 				return r, err
 			}
 		}
 
+		r.Delay = time.Now().Sub(start)
 		return r, nil
 	}
 
-	return Result{Success: false, DaysLeft: -1}, err
+	return Result{Success: false, DaysLeft: -1, Delay: time.Now().Sub(start)}, err
 }
 
 var (

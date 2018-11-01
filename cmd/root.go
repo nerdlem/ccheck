@@ -18,15 +18,86 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/nerdlem/ccheck/cert"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-var minDays int
+var minDays, numWorkers int
 var expired, quiet bool
 var inputFile string
+
+// CertResult holds a processed evaluation of a Spec
+type CertResult struct {
+	// Spec is the certificate specification evaluated.
+	Spec string
+	// Result is a pointer to the evaluation result
+	Result *cert.Result
+	// Err contains any error found during evaluation
+	Err error
+}
+
+var wg sync.WaitGroup
+
+// processWorker processes a spec concurrently
+func processWorker(s <-chan string, c chan<- CertResult) {
+	for spec := range s {
+		cr := CertResult{Spec: spec}
+		r, err := cert.ProcessCert(spec)
+		if err != nil {
+			cr.Err = err
+		} else {
+			cr.Result = &r
+		}
+
+		c <- cr
+	}
+}
+
+// simpleOutput produces a simple output format. As a side effect, it also
+// updates the seenErrors counter.
+func simpleOutput(c <-chan CertResult) {
+	for r := range c {
+		if r.Err != nil {
+			fmt.Fprintf(os.Stderr, "%s: %s\n", r.Spec, r.Err)
+			seenErrors++
+			wg.Done()
+			continue
+		}
+
+		if !r.Result.Success {
+			fmt.Fprintf(os.Stderr, "%s: failed\n", r.Spec)
+			seenErrors++
+			wg.Done()
+			continue
+		}
+
+		if minDays != 0 {
+			if minDays > r.Result.DaysLeft {
+				fmt.Fprintf(os.Stderr, "%s: expires in %d days\n", r.Spec, r.Result.DaysLeft)
+				if expired {
+					if !quiet {
+						fmt.Printf("%s\n", r.Spec)
+					}
+				} else {
+					seenErrors++
+				}
+				wg.Done()
+				continue
+			}
+		}
+
+		if !quiet && !expired {
+			fmt.Printf("%s\n", r.Spec)
+		}
+
+		wg.Done()
+	}
+}
+
+var seenErrors int
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
@@ -40,7 +111,7 @@ to support scripting applications.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
-		errors := 0
+		seenErrors = 0
 		var specSlice []string
 
 		if inputFile == "" {
@@ -53,40 +124,23 @@ to support scripting applications.`,
 			}
 		}
 
-		for _, spec := range specSlice {
-			r, err := cert.ProcessCert(spec)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: %s\n", spec, err)
-				errors++
-				continue
-			}
+		cSpec := make(chan string, 100)
+		cCert := make(chan CertResult, 100)
 
-			if !r.Success {
-				fmt.Fprintf(os.Stderr, "%s: failed\n", spec)
-				errors++
-				continue
-			}
-
-			if minDays != 0 {
-				if minDays > r.DaysLeft {
-					fmt.Fprintf(os.Stderr, "%s: expires in %d days\n", spec, r.DaysLeft)
-					if expired {
-						if !quiet {
-							fmt.Printf("%s\n", spec)
-						}
-					} else {
-						errors++
-					}
-					continue
-				}
-			}
-
-			if !quiet && !expired {
-				fmt.Printf("%s\n", spec)
-			}
+		for i := 0; i < numWorkers; i++ {
+			go processWorker(cSpec, cCert)
 		}
 
-		if errors > 0 {
+		go simpleOutput(cCert)
+
+		for _, spec := range specSlice {
+			wg.Add(1)
+			cSpec <- spec
+		}
+
+		wg.Wait()
+
+		if seenErrors > 0 {
 			os.Exit(2)
 		} else {
 			os.Exit(0)
@@ -106,7 +160,8 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 	RootCmd.PersistentFlags().StringVarP(&inputFile, "input-file", "i", "", "Read cert specs from file")
-	RootCmd.PersistentFlags().IntVar(&minDays, "min-days", 15, "Minimum days left")
+	RootCmd.PersistentFlags().IntVarP(&numWorkers, "num-workers", "n", 1, "Parallel verification workers")
+	RootCmd.PersistentFlags().IntVarP(&minDays, "min-days", "m", 15, "Minimum days left")
 	RootCmd.PersistentFlags().BoolVar(&quiet, "quiet", false, "Supress passing cert spec listing on success")
 	RootCmd.PersistentFlags().BoolVar(&expired, "show-expired", false, "Match expired or close-to-expiry certs")
 }

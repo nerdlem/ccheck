@@ -44,3 +44,19 @@ suretymail.com:443
 tupsiquiatra.expert:443
 cert/google-chain.pem
 ```
+
+Checks can be made in parallel, using the `--num-workers` command line option. See the difference.
+
+```
+$ time ~/go/bin/ccheck -i certificate.list > /dev/null
+
+real	0m2.348s
+user	0m0.092s
+sys	0m0.029s
+
+$ time ~/go/bin/ccheck -i certificate.list --num-workers 6 > /dev/null
+
+real	0m0.595s
+user	0m0.092s
+sys	0m0.026s
+```
