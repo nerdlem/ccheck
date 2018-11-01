@@ -10,6 +10,10 @@ It can produce [Test Anything Protocol](http://testanything.org/) which makes th
 
 ## Examples
 
+Errors are sent to `STDERR`, the listing of certificates that satisfy the given criteria is sent to `STDOUT` but can be suppressed by using `--quiet` in the command line. TAP output is triggered by the `--tap` command line option.
+
+### Custom certificate expiration check
+
 Check whether a given certificate will expire _soon_, or within 10,000 days as in this example. Also whether the certificate is valid for the DNS name provided, is applicable:
 
 ```
@@ -17,6 +21,24 @@ $ ccheck --min-days 10000 google.com:443 || echo The end is near
 google.com:443: expires in 1160 days
 The end is near
 ```
+
+Specifying 0 days with `--min-days` disables the expiration checking.
+
+### Certificate validation
+
+By default, `ccheck` verifies that the certificate is valid for the domain name being used for testing. This can be disabled with the `--skip-verify` option:
+
+```
+$ go run main.go losmunoz.com:443 || echo failed
+losmunoz.com:443: x509: certificate is valid for *.athena.pics, athena.pics, not losmunoz.com
+exit status 2
+failed
+
+$ go run main.go --skip-verify losmunoz.com:443 || echo failed
+losmunoz.com:443
+```
+
+### Certificates in local PEM files
 
 Certificates can also be placed in local files:
 
@@ -26,9 +48,7 @@ $ ccheck ./cert/google-chain.pem && echo all is fine
 all is fine
 ```
 
-Errors are sent to `STDERR`, the listing of certificates that satisfy the given criteria is sent to `STDOUT` but can be suppressed by using `--quiet` in the command line. TAP output is triggered by the `--tap` command line option.
-
-Specifying 0 days with `min-days` disables the expiration checking.
+### Specify list of certificates to check via a file
 
 To ease testing, a list of certificate specs can be placed on a file:
 
@@ -49,6 +69,8 @@ tupsiquiatra.expert:443
 cert/google-chain.pem
 ```
 
+### TAP — Test Anything Protocol — support
+
 The same result — in TAP — provides output that can be captured by more elaborate test suites:
 
 ```
@@ -68,6 +90,8 @@ ok 11 - isipp.com:443 expires in 69 days (took 0.186 secs)
 ok 12 - suretymail.com:443 expires in 69 days (took 0.187 secs)
 ok 13 - tupsiquiatra.expert:443 expires in 31 days (took 0.244 secs)
 ```
+
+### Parallel checks for faster processing
 
 Checks can be made in parallel, using the `--num-workers` command line option. See the difference.
 

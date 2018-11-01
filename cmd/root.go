@@ -27,7 +27,7 @@ import (
 )
 
 var minDays, numWorkers int
-var expired, quiet, tapRequested bool
+var expired, quiet, skipVerify, tapRequested bool
 var inputFile string
 
 // CertResult holds a processed evaluation of a Spec
@@ -46,7 +46,7 @@ var wg sync.WaitGroup
 func processWorker(s <-chan string, c chan<- CertResult) {
 	for spec := range s {
 		cr := CertResult{Spec: spec}
-		r, err := cert.ProcessCert(spec)
+		r, err := cert.ProcessCert(spec, skipVerify)
 		if err != nil {
 			cr.Err = err
 		} else {
@@ -205,6 +205,7 @@ func init() {
 	RootCmd.PersistentFlags().IntVarP(&minDays, "min-days", "m", 15, "Minimum days left")
 	RootCmd.PersistentFlags().BoolVar(&quiet, "quiet", false, "Supress passing cert spec listing on success")
 	RootCmd.PersistentFlags().BoolVar(&expired, "show-expired", false, "Match expired or close-to-expiry certs")
+	RootCmd.PersistentFlags().BoolVarP(&skipVerify, "skip-verify", "s", false, "Skip certificate verification")
 	RootCmd.PersistentFlags().BoolVarP(&tapRequested, "tap", "t", false, "Produce TAP output")
 }
 

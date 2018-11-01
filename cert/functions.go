@@ -55,7 +55,7 @@ var ErrNoCerts = fmt.Errorf("no certificates to process")
 // ProcessCert takes a spec certificate specification, which might be a file
 // containing a PEM certificate or a dial string to connect to and obtain the
 // certificate from.
-func ProcessCert(spec string) (Result, error) {
+func ProcessCert(spec string, skip bool) (Result, error) {
 
 	start := time.Now()
 
@@ -63,7 +63,11 @@ func ProcessCert(spec string) (Result, error) {
 		return ReadFromFile(spec)
 	}
 
-	conn, err := tls.Dial("tcp", spec, nil)
+	config := tls.Config{
+		InsecureSkipVerify: skip,
+	}
+
+	conn, err := tls.Dial("tcp", spec, &config)
 	if err == nil {
 		defer conn.Close()
 

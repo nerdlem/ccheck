@@ -49,7 +49,7 @@ func TestLocal(t *testing.T) {
 
 		t.Logf("testing spec %s", spec)
 
-		r, err := ProcessCert(spec)
+		r, err := ProcessCert(spec, false)
 
 		t.Logf("result is %s", r.String())
 
@@ -66,7 +66,7 @@ func TestLocal(t *testing.T) {
 		}
 	}
 
-	r, err := ProcessCert("empty.pem")
+	r, err := ProcessCert("empty.pem", true)
 	if err != ErrNoCerts {
 		t.Errorf("empty .pem file gave unexpected error %s", err)
 	}
@@ -74,7 +74,7 @@ func TestLocal(t *testing.T) {
 		t.Errorf("unexpected result for empty.pem: %s", r.String())
 	}
 
-	r, err = ProcessCert("bad.pem")
+	r, err = ProcessCert("bad.pem", true)
 	if err == nil {
 		t.Errorf("bad .pem should have thrown error")
 	}
@@ -91,7 +91,7 @@ func TestExternal(t *testing.T) {
 
 		t.Logf("testing spec %s", spec)
 
-		r, err := ProcessCert(spec)
+		r, err := ProcessCert(spec, false)
 
 		t.Logf("result is %s", r.String())
 
