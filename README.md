@@ -96,13 +96,13 @@ ok 13 - tupsiquiatra.expert:443 expires in 31 days (took 0.244 secs)
 Checks can be made in parallel, using the `--num-workers` command line option. See the difference.
 
 ```
-$ time ~/go/bin/ccheck -i certificate.list > /dev/null
+$ time ccheck -i certificate.list > /dev/null
 
 real	0m2.348s
 user	0m0.092s
 sys	0m0.029s
 
-$ time ~/go/bin/ccheck -i certificate.list --num-workers 6 > /dev/null
+$ time ccheck -i certificate.list --num-workers 6 > /dev/null
 
 real	0m0.595s
 user	0m0.092s
