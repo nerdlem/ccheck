@@ -16,6 +16,7 @@
 package cmd
 
 import (
+	"crypto/tls"
 	"fmt"
 	"os"
 	"sync"
@@ -44,9 +45,10 @@ var wg sync.WaitGroup
 
 // processWorker processes a spec concurrently
 func processWorker(s <-chan string, c chan<- CertResult) {
+	config := tls.Config{InsecureSkipVerify: skipVerify}
 	for spec := range s {
 		cr := CertResult{Spec: spec}
-		r, err := cert.ProcessCert(spec, skipVerify)
+		r, err := cert.ProcessCert(spec, &config)
 		if err != nil {
 			cr.Err = err
 		} else {
