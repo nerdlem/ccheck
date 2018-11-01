@@ -25,3 +25,22 @@ all is fine
 Errors are sent to `STDERR`, the listing of certificates that satisfy the given criteria is sent to `STDOUT` but can be suppressed by using `--quiet` in the command line.
 
 Specifying 0 days with `min-days` disables the expiration checking.
+
+To ease testing, a list of certificate specs can be placed on a file:
+
+```
+$ ccheck --input-file certificate.list
+lem.click:443
+lem.link:443
+losmunoz.com:443: x509: certificate is valid for *.athena.pics, athena.pics, not losmunoz.com
+quad.click:443
+esmtp.email:443
+libertad.link:443
+allaboutworms.com:443
+google.com:443
+isipp.com:443
+outlook.com:443
+suretymail.com:443
+tupsiquiatra.expert:443
+cert/google-chain.pem
+```

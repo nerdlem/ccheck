@@ -1,0 +1,31 @@
+# This is a list of certificate specs to process with ccheck. It supports
+# comments much as you would expect. Also, blank lines are ignored.
+
+# Entries are either an IP address or host name plus a port number — separated
+# by a colon as in the Dial() function — or the filename of a PEM-encoded
+# certificate.
+
+# Some of my personal projects
+
+lem.click:443
+lem.link:443
+losmunoz.com:443
+quad.click:443
+
+# Projects I'm part of
+
+esmtp.email:443
+libertad.link:443
+
+# Domains I'm also interested in
+
+allaboutworms.com:443
+google.com:443
+isipp.com:443
+outlook.com:443
+suretymail.com:443
+tupsiquiatra.expert:443
+
+# And there can also be files, useful for testing perhaps
+
+cert/google-chain.pem

@@ -4,7 +4,45 @@ import (
 	"crypto/x509"
 	"testing"
 	"time"
+
+	"github.com/davecgh/go-spew/spew"
 )
+
+func TestList(t *testing.T) {
+	l, err := ReadSpecSliceFromFile("no-such-file")
+	if err == nil {
+		t.Errorf("reading unexistent list file should return an error")
+	}
+
+	if l != nil {
+		t.Errorf("for unexistent list files nil should be returned")
+	}
+
+	l, err = ReadSpecSliceFromFile("empty.list")
+	if err != nil {
+		t.Errorf("unexpected error returned reading empty.list: %s", err)
+	}
+
+	if len(l) != 0 {
+		t.Logf("unexpected list contents: %s", spew.Sdump(l))
+		t.Errorf("returned list should be empty, but has %d elements instead", len(l))
+	}
+
+	l, err = ReadSpecSliceFromFile("simple.list")
+	if err != nil {
+		t.Errorf("unexpected error returned reading empty.list: %s", err)
+	}
+
+	t.Logf("unexpected list contents: %s", spew.Sdump(l))
+
+	if len(l) != 1 {
+		t.Errorf("returned list should have a single, but has %d elements instead", len(l))
+	}
+
+	if l[0] != "google-chain.pem" {
+		t.Errorf("simple list should only contain google-chain.pem")
+	}
+}
 
 func TestLocal(t *testing.T) {
 	for _, spec := range []string{"google-chain.pem"} {

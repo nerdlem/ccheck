@@ -1,12 +1,14 @@
 package cert
 
 import (
+	"bufio"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"time"
 )
 
@@ -80,6 +82,34 @@ func ProcessCert(spec string) (Result, error) {
 	}
 
 	return Result{Success: false, DaysLeft: -1}, err
+}
+
+var (
+	reComment    = regexp.MustCompile(`#.*$`)
+	reWhitespace = regexp.MustCompile(`\s+`)
+)
+
+// ReadSpecSliceFromFile reads a list of certificate specs from a file and returns the
+// list of specs.
+func ReadSpecSliceFromFile(name string) ([]string, error) {
+	r, err := os.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
+	ret := []string{}
+
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		// Remove comments and whitespace
+		t := reWhitespace.ReplaceAllString(reComment.ReplaceAllString(scanner.Text(), ""), "")
+		if t != "" {
+			ret = append(ret, t)
+		}
+	}
+
+	return ret, nil
 }
 
 // ReadFromFile reads a certificate from a local file and returns the result of

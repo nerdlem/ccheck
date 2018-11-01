@@ -26,6 +26,7 @@ import (
 
 var minDays int
 var expired, quiet bool
+var inputFile string
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
@@ -40,7 +41,19 @@ to support scripting applications.`,
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
 		errors := 0
-		for _, spec := range args {
+		var specSlice []string
+
+		if inputFile == "" {
+			specSlice = args
+		} else {
+			var err error
+			specSlice, err = cert.ReadSpecSliceFromFile(inputFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "cannot read input file %s: %s", inputFile, err)
+			}
+		}
+
+		for _, spec := range specSlice {
 			r, err := cert.ProcessCert(spec)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s: %s\n", spec, err)
@@ -92,6 +105,7 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+	RootCmd.PersistentFlags().StringVarP(&inputFile, "input-file", "i", "", "Read cert specs from file")
 	RootCmd.PersistentFlags().IntVar(&minDays, "min-days", 15, "Minimum days left")
 	RootCmd.PersistentFlags().BoolVar(&quiet, "quiet", false, "Supress passing cert spec listing on success")
 	RootCmd.PersistentFlags().BoolVar(&expired, "show-expired", false, "Match expired or close-to-expiry certs")
