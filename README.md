@@ -12,6 +12,28 @@ It can produce [Test Anything Protocol](http://testanything.org/) which makes th
 
 Errors are sent to `STDERR`, the listing of certificates that satisfy the given criteria is sent to `STDOUT` but can be suppressed by using `--quiet` in the command line. TAP output is triggered by the `--tap` command line option.
 
+### TAP — Test Anything Protocol — support
+
+TAP-formatted test results provide output that can be captured by more elaborate test suites:
+
+```
+$ ccheck --input-file certificate.list --tap --num-workers 6
+1..0
+not ok 1 - losmunoz.com:443 x509: certificate is valid for *.athena.pics, athena.pics, not losmunoz.com
+ok 2 - lem.click:443 expires in 37 days (took 0.350 secs)
+ok 3 - lem.link:443 expires in 37 days (took 0.350 secs)
+ok 4 - quad.click:443 expires in 37 days (took 0.351 secs)
+ok 5 - libertad.link:443 expires in 31 days (took 0.351 secs)
+ok 6 - esmtp.email:443 expires in 30 days (took 0.351 secs)
+ok 7 - google.com:443 expires in 67 days (took 0.053 secs)
+ok 8 - cert/google-chain.pem expires in 46 days (took 0.000 secs)
+ok 9 - allaboutworms.com:443 expires in 69 days (took 0.186 secs)
+ok 10 - outlook.com:443 expires in 638 days (took 0.152 secs)
+ok 11 - isipp.com:443 expires in 69 days (took 0.186 secs)
+ok 12 - suretymail.com:443 expires in 69 days (took 0.187 secs)
+ok 13 - tupsiquiatra.expert:443 expires in 31 days (took 0.244 secs)
+```
+
 ### Custom certificate expiration check
 
 Check whether a given certificate will expire _soon_, or within 10,000 days as in this example. Also whether the certificate is valid for the DNS name provided, is applicable:
@@ -36,6 +58,30 @@ failed
 
 $ go run main.go --skip-verify losmunoz.com:443 || echo failed
 losmunoz.com:443
+```
+
+### Custom client certificate, custom Root CA processing
+
+The `--client-cert` and `--client-key` allows for the specification of a custom client certificate pair.
+
+```
+$ ccheck --tap my.server:9990
+1..0
+not ok 1 - my.server:9990 remote error: tls: handshake failure
+exit status 2
+
+$ ccheck --tap --client-cert client.crt --client-key client.pem my.server:9990
+1..0
+ok 1 - my.server:9990 expires in 117 days (took 0.059 secs)
+```
+
+`--root-certs` allows for specifying custom root CA certificates for validation of the received server certificate.
+
+```
+$ ccheck --tap --root-certs my-custom-CA.crt www.google.com:443
+1..0
+not ok 1 - www.google.com:443 x509: certificate signed by unknown authority
+exit status 2
 ```
 
 ### Certificates in local PEM files
@@ -67,28 +113,6 @@ outlook.com:443
 suretymail.com:443
 tupsiquiatra.expert:443
 cert/google-chain.pem
-```
-
-### TAP — Test Anything Protocol — support
-
-The same result — in TAP — provides output that can be captured by more elaborate test suites:
-
-```
-$ ccheck --input-file certificate.list --tap --num-workers 6
-1..0
-not ok 1 - losmunoz.com:443 x509: certificate is valid for *.athena.pics, athena.pics, not losmunoz.com
-ok 2 - lem.click:443 expires in 37 days (took 0.350 secs)
-ok 3 - lem.link:443 expires in 37 days (took 0.350 secs)
-ok 4 - quad.click:443 expires in 37 days (took 0.351 secs)
-ok 5 - libertad.link:443 expires in 31 days (took 0.351 secs)
-ok 6 - esmtp.email:443 expires in 30 days (took 0.351 secs)
-ok 7 - google.com:443 expires in 67 days (took 0.053 secs)
-ok 8 - cert/google-chain.pem expires in 46 days (took 0.000 secs)
-ok 9 - allaboutworms.com:443 expires in 69 days (took 0.186 secs)
-ok 10 - outlook.com:443 expires in 638 days (took 0.152 secs)
-ok 11 - isipp.com:443 expires in 69 days (took 0.186 secs)
-ok 12 - suretymail.com:443 expires in 69 days (took 0.187 secs)
-ok 13 - tupsiquiatra.expert:443 expires in 31 days (took 0.244 secs)
 ```
 
 ### Parallel checks for faster processing

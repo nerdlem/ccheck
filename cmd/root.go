@@ -17,7 +17,9 @@ package cmd
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"sync"
 
@@ -27,9 +29,13 @@ import (
 	"github.com/spf13/viper"
 )
 
-var minDays, numWorkers int
-var expired, quiet, skipVerify, tapRequested bool
-var inputFile string
+var (
+	minDays, numWorkers                      int
+	expired, quiet, skipVerify, tapRequested bool
+	certFile, inputFile, keyFile, rootFile   string
+	clientCertificates                       []tls.Certificate
+	rootCertPool                             *x509.CertPool
+)
 
 // CertResult holds a processed evaluation of a Spec
 type CertResult struct {
@@ -45,7 +51,11 @@ var wg sync.WaitGroup
 
 // processWorker processes a spec concurrently
 func processWorker(s <-chan string, c chan<- CertResult) {
-	config := tls.Config{InsecureSkipVerify: skipVerify}
+	config := tls.Config{
+		Certificates:       clientCertificates,
+		InsecureSkipVerify: skipVerify,
+		RootCAs:            rootCertPool,
+	}
 	for spec := range s {
 		cr := CertResult{Spec: spec}
 		r, err := cert.ProcessCert(spec, &config)
@@ -153,13 +163,44 @@ to support scripting applications.`,
 		seenErrors = 0
 		var specSlice []string
 
+		if rootFile == "" {
+			rootCertPool = nil
+		} else {
+			rootCertPool = x509.NewCertPool()
+
+			rootBytes, err := ioutil.ReadFile(rootFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to read root cert from %s: %s\n", rootFile, err)
+				os.Exit(2)
+			}
+
+			if !rootCertPool.AppendCertsFromPEM(rootBytes) {
+				fmt.Fprintf(os.Stderr, "failed to append certs from %s\n", rootFile)
+				os.Exit(2)
+			}
+		}
+
+		if certFile == "" && keyFile == "" {
+			// Do nothing -- this is the case where no client certs are to be used.
+		} else if certFile != "" && keyFile != "" {
+			cc, err := tls.LoadX509KeyPair(certFile, keyFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to load client certificate/key pair: %s\n", err)
+				os.Exit(2)
+			}
+			clientCertificates = []tls.Certificate{cc}
+		} else {
+			fmt.Fprintf(os.Stderr, "must specify either both --cert-file and --key-file; or none\n")
+			os.Exit(2)
+		}
+
 		if inputFile == "" {
 			specSlice = args
 		} else {
 			var err error
 			specSlice, err = cert.ReadSpecSliceFromFile(inputFile)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "cannot read input file %s: %s", inputFile, err)
+				fmt.Fprintf(os.Stderr, "cannot read input file %s: %s\n", inputFile, err)
 			}
 		}
 
@@ -202,10 +243,13 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+	RootCmd.PersistentFlags().StringVarP(&certFile, "client-cert", "c", "", "Read client cert from file")
+	RootCmd.PersistentFlags().StringVarP(&keyFile, "client-key", "k", "", "Read client key from file")
 	RootCmd.PersistentFlags().StringVarP(&inputFile, "input-file", "i", "", "Read cert specs from file")
 	RootCmd.PersistentFlags().IntVarP(&numWorkers, "num-workers", "n", 1, "Parallel verification workers")
 	RootCmd.PersistentFlags().IntVarP(&minDays, "min-days", "m", 15, "Minimum days left")
 	RootCmd.PersistentFlags().BoolVar(&quiet, "quiet", false, "Supress passing cert spec listing on success")
+	RootCmd.PersistentFlags().StringVarP(&rootFile, "root-certs", "r", "", "Provide specific root certs for validation")
 	RootCmd.PersistentFlags().BoolVar(&expired, "show-expired", false, "Match expired or close-to-expiry certs")
 	RootCmd.PersistentFlags().BoolVarP(&skipVerify, "skip-verify", "s", false, "Skip certificate verification")
 	RootCmd.PersistentFlags().BoolVarP(&tapRequested, "tap", "t", false, "Produce TAP output")
