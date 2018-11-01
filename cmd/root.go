@@ -20,13 +20,14 @@ import (
 	"os"
 	"sync"
 
+	"github.com/mndrix/tap-go"
 	"github.com/nerdlem/ccheck/cert"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var minDays, numWorkers int
-var expired, quiet bool
+var expired, quiet, tapRequested bool
 var inputFile string
 
 // CertResult holds a processed evaluation of a Spec
@@ -53,6 +54,42 @@ func processWorker(s <-chan string, c chan<- CertResult) {
 		}
 
 		c <- cr
+	}
+}
+
+// tapOutput produces TAP formatted output. As a side effect, it also
+// updates the seenErrors counter.
+func tapOutput(c <-chan CertResult) {
+	t := tap.New()
+	t.AutoPlan()
+	for r := range c {
+		if r.Err != nil {
+			t.Fail(fmt.Sprintf("%s %s", r.Spec, r.Err))
+			seenErrors++
+			wg.Done()
+			continue
+		}
+
+		if !r.Result.Success {
+			t.Fail(fmt.Sprintf("%s failed (took %0.3f secs)", r.Spec, r.Result.Delay.Seconds()))
+			seenErrors++
+			wg.Done()
+			continue
+		}
+
+		if minDays != 0 {
+			if minDays > r.Result.DaysLeft {
+				t.Fail(fmt.Sprintf("%s expires in %d days (took %0.3f secs)",
+					r.Spec, r.Result.DaysLeft, r.Result.Delay.Seconds()))
+				seenErrors++
+			} else {
+				t.Pass(fmt.Sprintf("%s expires in %d days (took %0.3f secs)",
+					r.Spec, r.Result.DaysLeft, r.Result.Delay.Seconds()))
+			}
+		} else {
+			t.Pass(fmt.Sprintf("%s not expired (took %0.3f secs)", r.Spec, r.Result.Delay.Seconds()))
+		}
+		wg.Done()
 	}
 }
 
@@ -131,7 +168,11 @@ to support scripting applications.`,
 			go processWorker(cSpec, cCert)
 		}
 
-		go simpleOutput(cCert)
+		if tapRequested {
+			go tapOutput(cCert)
+		} else {
+			go simpleOutput(cCert)
+		}
 
 		for _, spec := range specSlice {
 			wg.Add(1)
@@ -164,6 +205,7 @@ func init() {
 	RootCmd.PersistentFlags().IntVarP(&minDays, "min-days", "m", 15, "Minimum days left")
 	RootCmd.PersistentFlags().BoolVar(&quiet, "quiet", false, "Supress passing cert spec listing on success")
 	RootCmd.PersistentFlags().BoolVar(&expired, "show-expired", false, "Match expired or close-to-expiry certs")
+	RootCmd.PersistentFlags().BoolVarP(&tapRequested, "tap", "t", false, "Produce TAP output")
 }
 
 // initConfig reads in config file and ENV variables if set.

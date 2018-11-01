@@ -75,16 +75,26 @@ func ProcessCert(spec string) (Result, error) {
 			return Result{Success: false, DaysLeft: -1, Delay: time.Now().Sub(start)}, ErrNoCerts
 		}
 
-		for _, c := range state.PeerCertificates {
+		var ret Result
+
+		for i, c := range state.PeerCertificates {
+			if i == 0 {
+				ret = r
+			}
+
 			r, err = Check(c)
 			if err != nil {
 				r.Delay = time.Now().Sub(start)
 				return r, err
 			}
+
+			if !c.IsCA {
+				ret = r
+			}
 		}
 
-		r.Delay = time.Now().Sub(start)
-		return r, nil
+		ret.Delay = time.Now().Sub(start)
+		return ret, nil
 	}
 
 	return Result{Success: false, DaysLeft: -1, Delay: time.Now().Sub(start)}, err
@@ -122,6 +132,8 @@ func ReadSpecSliceFromFile(name string) ([]string, error) {
 // processing it
 func ReadFromFile(name string) (Result, error) {
 
+	start := time.Now()
+
 	r := Result{
 		Success:  false,
 		DaysLeft: -1,
@@ -152,14 +164,25 @@ func ReadFromFile(name string) (Result, error) {
 		return r, ErrNoCerts
 	}
 
-	for _, c := range certs {
+	var ret Result
+
+	for i, c := range certs {
+		if i == 0 {
+			ret = r
+		}
+
 		r, err = Check(c)
 		if err != nil {
 			return r, err
 		}
+
+		if !c.IsCA {
+			ret = r
+		}
 	}
 
-	return r, nil
+	ret.Delay = time.Now().Sub(start)
+	return ret, nil
 }
 
 // Check validates the expiration dates of the given certificate, returning the
