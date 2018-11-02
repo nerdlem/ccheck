@@ -48,6 +48,7 @@ type CertResult struct {
 }
 
 var wg sync.WaitGroup
+var t *tap.T
 
 // processWorker processes a spec concurrently
 func processWorker(s <-chan string, c chan<- CertResult) {
@@ -72,8 +73,9 @@ func processWorker(s <-chan string, c chan<- CertResult) {
 // tapOutput produces TAP formatted output. As a side effect, it also
 // updates the seenErrors counter.
 func tapOutput(c <-chan CertResult) {
-	t := tap.New()
-	t.AutoPlan()
+	t = tap.New()
+	t.Header(0)
+
 	for r := range c {
 		if r.Err != nil {
 			t.Fail(fmt.Sprintf("%s %s", r.Spec, r.Err))
@@ -103,6 +105,8 @@ func tapOutput(c <-chan CertResult) {
 		}
 		wg.Done()
 	}
+
+	t.AutoPlan()
 }
 
 // simpleOutput produces a simple output format. As a side effect, it also
@@ -222,7 +226,13 @@ to support scripting applications.`,
 			cSpec <- spec
 		}
 
+		close(cSpec)
+
 		wg.Wait()
+
+		if tapRequested && t != nil {
+			t.AutoPlan()
+		}
 
 		if seenErrors > 0 {
 			os.Exit(2)
