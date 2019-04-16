@@ -1,6 +1,7 @@
 package cert
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	"testing"
 	"time"
@@ -49,7 +50,7 @@ func TestLocal(t *testing.T) {
 
 		t.Logf("testing spec %s", spec)
 
-		r, err := ProcessCert(spec, nil)
+		r, err := ProcessCert(spec, nil, false)
 
 		t.Logf("result is %s", r.String())
 
@@ -66,7 +67,7 @@ func TestLocal(t *testing.T) {
 		}
 	}
 
-	r, err := ProcessCert("empty.pem", nil)
+	r, err := ProcessCert("empty.pem", nil, false)
 	if err != ErrNoCerts {
 		t.Errorf("empty .pem file gave unexpected error %s", err)
 	}
@@ -74,7 +75,7 @@ func TestLocal(t *testing.T) {
 		t.Errorf("unexpected result for empty.pem: %s", r.String())
 	}
 
-	r, err = ProcessCert("bad.pem", nil)
+	r, err = ProcessCert("bad.pem", nil, false)
 	if err == nil {
 		t.Errorf("bad .pem should have thrown error")
 	}
@@ -91,7 +92,7 @@ func TestExternal(t *testing.T) {
 
 		t.Logf("testing spec %s", spec)
 
-		r, err := ProcessCert(spec, nil)
+		r, err := ProcessCert(spec, nil, false)
 
 		t.Logf("result is %s", r.String())
 
@@ -107,6 +108,34 @@ func TestExternal(t *testing.T) {
 			t.Errorf("days left for spec %s is %d, which is suspicious", spec, r.DaysLeft)
 		}
 	}
+}
+
+func TestSTARTTLS(t *testing.T) {
+	t.Logf("These tests need Internet connectivity")
+
+	for _, spec := range []string{"ccheck.libertad.link:587"} {
+
+		t.Logf("testing STARTTLS spec %s", spec)
+
+		tc := tls.Config{}
+
+		r, err := ProcessCert(spec, &tc, true)
+
+		t.Logf("result is %s", r.String())
+
+		if err != nil {
+			t.Errorf("unexpected error %s", err)
+		}
+
+		if !r.Success {
+			t.Errorf("spec %s should have a valid certificate", spec)
+		}
+
+		if r.DaysLeft <= 0 {
+			t.Errorf("days left for spec %s is %d, which is suspicious", spec, r.DaysLeft)
+		}
+	}
+
 }
 
 func TestProcessCert(t *testing.T) {

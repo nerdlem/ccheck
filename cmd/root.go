@@ -30,11 +30,11 @@ import (
 )
 
 var (
-	minDays, numWorkers                      int
-	expired, quiet, skipVerify, tapRequested bool
-	certFile, inputFile, keyFile, rootFile   string
-	clientCertificates                       []tls.Certificate
-	rootCertPool                             *x509.CertPool
+	minDays, numWorkers                                int
+	expired, quiet, skipVerify, tapRequested, starttls bool
+	certFile, inputFile, keyFile, rootFile             string
+	clientCertificates                                 []tls.Certificate
+	rootCertPool                                       *x509.CertPool
 )
 
 // CertResult holds a processed evaluation of a Spec
@@ -59,7 +59,7 @@ func processWorker(s <-chan string, c chan<- CertResult) {
 	}
 	for spec := range s {
 		cr := CertResult{Spec: spec}
-		r, err := cert.ProcessCert(spec, &config)
+		r, err := cert.ProcessCert(spec, &config, starttls)
 		if err != nil {
 			cr.Err = err
 		} else {
@@ -262,6 +262,7 @@ func init() {
 	RootCmd.PersistentFlags().StringVarP(&rootFile, "root-certs", "r", "", "Provide specific root certs for validation")
 	RootCmd.PersistentFlags().BoolVar(&expired, "show-expired", false, "Match expired or close-to-expiry certs")
 	RootCmd.PersistentFlags().BoolVarP(&skipVerify, "skip-verify", "s", false, "Skip certificate verification")
+	RootCmd.PersistentFlags().BoolVarP(&starttls, "starttls", "S", false, "SMTP STARTTLS checking")
 	RootCmd.PersistentFlags().BoolVarP(&tapRequested, "tap", "t", false, "Produce TAP output")
 }
 

@@ -94,6 +94,26 @@ $ ccheck ./cert/google-chain.pem && echo all is fine
 all is fine
 ```
 
+The tests use a local copy of a current Google certificate chain. To quickly get an up-to-date copy, use the following command:
+
+```
+openssl s_client -connect google.com:443 -showcerts < /dev/null > google-chain.pem
+```
+
+### STARTTLS certificate validation
+
+When using the `--starttls` command line option, `ccheck` will assume a connection to an ESMTP server and fetch the TLS certificates after issuing the `STARTTLS` command to start a new TLS session. This is useful to test submission servers as in this example:
+
+```
+$ ccheck --num-workers 10 --tap --starttls smtp.outlook.com:587 smtp.gmail.com:587 mx.libertad.link:587 mail.gmx.com:587
+TAP version 13
+ok 1 - smtp.gmail.com:587 expires in 63 days (took 0.820 secs)
+ok 2 - mx.libertad.link:587 expires in 46 days (took 1.837 secs)
+ok 3 - mail.gmx.com:587 expires in 446 days (took 2.499 secs)
+ok 4 - smtp.outlook.com:587 expires in 726 days (took 5.841 secs)
+1..4
+```
+
 ### Specify list of certificates to check via a file
 
 To ease testing, a list of certificate specs can be placed on a file:

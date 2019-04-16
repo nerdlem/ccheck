@@ -7,8 +7,11 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
+	"net"
+	"net/textproto"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -52,15 +55,151 @@ var ErrNil = fmt.Errorf("nil certificate")
 // the given spec
 var ErrNoCerts = fmt.Errorf("no certificates to process")
 
+// ErrNoESMTP indicates that the SMTP server does not support ESMTP, so no
+// STARTTLS is even attempted
+var ErrNoESMTP = fmt.Errorf("SMTP server does not speak ESMTP")
+
+// ErrNoSTARTTLS indicates that the SMTP server does not advertise STARTTLS
+// support after EHLO
+var ErrNoSTARTTLS = fmt.Errorf("SMTP server does not announce STARTTLS")
+
+// GetValidSTARTTLSCert connects to a SMTP server and retrieves and validates
+// the certificate obtained through a valid protocol negotiation.
+func GetValidSTARTTLSCert(spec string, config *tls.Config) ([]*x509.Certificate, error) {
+
+	var hostName, msg string
+	var tconn *textproto.Conn
+
+	nc, err := net.Dial("tcp", spec)
+	if err != nil {
+		return nil, err
+	}
+
+	conn := textproto.NewConn(nc)
+
+	// Accept any 2xx greeting or bust
+	_, msg, err = conn.Reader.ReadResponse(2)
+	if err != nil {
+		return nil, err
+	}
+
+	// This is a very liberal test, as the spec requires this to be immediately
+	// following the FQDN in the greeting.
+	if !strings.Contains(msg, "ESMTP") {
+		return nil, ErrNoESMTP
+	}
+
+	// EHLO FQDN
+
+	hostName, err = os.Hostname()
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = conn.Cmd("EHLO %s", hostName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Read response and look for STARTTLS support
+
+	_, msg, err = conn.Reader.ReadResponse(2)
+	if err != nil {
+		return nil, err
+	}
+
+	if !strings.Contains(msg, "STARTTLS") {
+		return nil, ErrNoSTARTTLS
+	}
+
+	// Setup STARTTLS (passing conn to the TLS layer) — force SNI in case it matters
+
+	_, err = conn.Cmd("STARTTLS")
+	if err != nil {
+		return nil, err
+	}
+
+	_, _, err = conn.Reader.ReadResponse(2)
+	if err != nil {
+		return nil, err
+	}
+
+	// At this point, we're ready to pass the socket to the underlying TLS layer
+
+	tc := tls.Client(nc, config)
+	tconn = textproto.NewConn(tc)
+
+	// At this point, we have a TLS connection initialized so let's pull the certs
+	// out of it to return no our caller. We need to send some traffic to populate
+	// state, so let's send a NOOP at this point.
+
+	if _, err = tconn.Cmd("NOOP"); err != nil {
+		return nil, err
+	}
+
+	if _, _, err = tconn.Reader.ReadResponse(0); err != nil {
+		return nil, err
+	}
+
+	cs := tc.ConnectionState()
+	ret := cs.PeerCertificates
+
+	if _, err = tconn.Cmd("QUIT"); err != nil {
+		return nil, err
+	}
+
+	if _, _, err = tconn.Reader.ReadResponse(2); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
 // ProcessCert takes a spec certificate specification, which might be a file
 // containing a PEM certificate or a dial string to connect to and obtain the
 // certificate from.
-func ProcessCert(spec string, config *tls.Config) (Result, error) {
+func ProcessCert(spec string, config *tls.Config, starttls bool) (Result, error) {
 
 	start := time.Now()
 
 	if _, err := os.Stat(spec); err == nil {
 		return ReadFromFile(spec)
+	}
+
+	r := Result{Success: false, DaysLeft: -1, Delay: 0 * time.Second}
+
+	if starttls {
+		targetName := (strings.SplitN(spec, ":", 2))[0]
+		config.ServerName = targetName
+
+		certs, err := GetValidSTARTTLSCert(spec, config)
+		if err != nil {
+			return r, err
+		}
+
+		if len(certs) == 0 {
+			return r, ErrNoCerts
+		}
+
+		var ret Result
+
+		for i, c := range certs {
+			if i == 0 {
+				ret = r
+			}
+
+			r, err = Check(c)
+			if err != nil {
+				return r, err
+			}
+
+			if !c.IsCA {
+				ret = r
+			}
+		}
+
+		ret.Delay = time.Now().Sub(start)
+		return ret, nil
 	}
 
 	conn, err := tls.Dial("tcp", spec, config)
@@ -98,6 +237,7 @@ func ProcessCert(spec string, config *tls.Config) (Result, error) {
 	}
 
 	return Result{Success: false, DaysLeft: -1, Delay: time.Now().Sub(start)}, err
+
 }
 
 var (
