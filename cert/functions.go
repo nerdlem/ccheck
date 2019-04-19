@@ -91,12 +91,11 @@ func GetValidSTARTTLSCert(spec string, config *tls.Config) ([]*x509.Certificate,
 	var hostName, msg string
 	var tconn *textproto.Conn
 
-	nc, err := net.Dial("tcp", spec)
+	nc, err := net.DialTimeout("tcp", spec, TNewConn)
 	if err != nil {
 		return nil, err
 	}
 
-	nc.SetDeadline(time.Now().Add(TNewConn))
 	conn := textproto.NewConn(nc)
 
 	// Accept any 2xx greeting or bust
