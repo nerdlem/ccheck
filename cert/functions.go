@@ -63,6 +63,27 @@ var ErrNoESMTP = fmt.Errorf("SMTP server does not speak ESMTP")
 // support after EHLO
 var ErrNoSTARTTLS = fmt.Errorf("SMTP server does not announce STARTTLS")
 
+// TNewConn is the interval to wait for a new connection to the MTA to complete
+var TNewConn = 30 * time.Second
+
+// TGreeting is the interval to wait for the MTA greeting after connecting
+var TGreeting = 10 * time.Second
+
+// TEHLO is the interval to wait our EHLO command to be accepted and replied to
+var TEHLO = 10 * time.Second
+
+// TSTARTTLS is the interval to wait for out STARTTLS to be accepted and responded
+var TSTARTTLS = 10 * time.Second
+
+// TTLS is the interval to wait for TLS establishment after STARTTLS
+var TTLS = 10 * time.Second
+
+// TNOOP is the interval to wait for the NOOP command issued upon TLS to complete
+var TNOOP = 10 * time.Second
+
+// TQUIT is the interval to wait for our final QUIT command to be accepted and responded
+var TQUIT = 10 * time.Second
+
 // GetValidSTARTTLSCert connects to a SMTP server and retrieves and validates
 // the certificate obtained through a valid protocol negotiation.
 func GetValidSTARTTLSCert(spec string, config *tls.Config) ([]*x509.Certificate, error) {
@@ -75,9 +96,11 @@ func GetValidSTARTTLSCert(spec string, config *tls.Config) ([]*x509.Certificate,
 		return nil, err
 	}
 
+	nc.SetDeadline(time.Now().Add(TNewConn))
 	conn := textproto.NewConn(nc)
 
 	// Accept any 2xx greeting or bust
+	nc.SetDeadline(time.Now().Add(TGreeting))
 	_, msg, err = conn.Reader.ReadResponse(2)
 	if err != nil {
 		return nil, err
@@ -96,6 +119,7 @@ func GetValidSTARTTLSCert(spec string, config *tls.Config) ([]*x509.Certificate,
 		return nil, err
 	}
 
+	nc.SetDeadline(time.Now().Add(TEHLO))
 	_, err = conn.Cmd("EHLO %s", hostName)
 	if err != nil {
 		return nil, err
@@ -114,6 +138,7 @@ func GetValidSTARTTLSCert(spec string, config *tls.Config) ([]*x509.Certificate,
 
 	// Setup STARTTLS (passing conn to the TLS layer) — force SNI in case it matters
 
+	nc.SetDeadline(time.Now().Add(TSTARTTLS))
 	_, err = conn.Cmd("STARTTLS")
 	if err != nil {
 		return nil, err
@@ -126,6 +151,7 @@ func GetValidSTARTTLSCert(spec string, config *tls.Config) ([]*x509.Certificate,
 
 	// At this point, we're ready to pass the socket to the underlying TLS layer
 
+	nc.SetDeadline(time.Now().Add(TTLS))
 	tc := tls.Client(nc, config)
 	tconn = textproto.NewConn(tc)
 
@@ -133,6 +159,7 @@ func GetValidSTARTTLSCert(spec string, config *tls.Config) ([]*x509.Certificate,
 	// out of it to return no our caller. We need to send some traffic to populate
 	// state, so let's send a NOOP at this point.
 
+	nc.SetDeadline(time.Now().Add(TNOOP))
 	if _, err = tconn.Cmd("NOOP"); err != nil {
 		return nil, err
 	}
@@ -144,6 +171,7 @@ func GetValidSTARTTLSCert(spec string, config *tls.Config) ([]*x509.Certificate,
 	cs := tc.ConnectionState()
 	ret := cs.PeerCertificates
 
+	nc.SetDeadline(time.Now().Add(TQUIT))
 	if _, err = tconn.Cmd("QUIT"); err != nil {
 		return nil, err
 	}
