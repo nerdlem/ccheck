@@ -4,8 +4,10 @@ import (
 	"bufio"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/binary"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/textproto"
@@ -13,6 +15,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/pgproto3"
 )
 
 // Result encodes the result of validating a Certificate
@@ -76,6 +80,10 @@ var ErrNoESMTP = fmt.Errorf("SMTP server does not speak ESMTP")
 // ErrNoSTARTTLS indicates that the SMTP server does not advertise STARTTLS
 // support after EHLO
 var ErrNoSTARTTLS = fmt.Errorf("SMTP server does not announce STARTTLS")
+
+// ErrNoPostgresTLS indicates that the PotgreSQL server did not accept our
+// attempt to setup TLS.
+var ErrNoPostgresTLS = fmt.Errorf("PostgreSQL does not seem to support TLS")
 
 // TNewConn is the interval to wait for a new connection to the MTA to complete
 var TNewConn = 30 * time.Second
@@ -196,6 +204,54 @@ func GetValidSTARTTLSCert(spec string, config *tls.Config) ([]*x509.Certificate,
 	return ret, nil
 }
 
+// GetValidPostgresCert connects to a SMTP server and retrieves and validates
+// the certificate obtained through a valid protocol negotiation.
+func GetValidPostgresCert(spec string, config *tls.Config) ([]*x509.Certificate, error) {
+
+	nc, err := net.DialTimeout("tcp", spec, TNewConn)
+	if err != nil {
+		return nil, err
+	}
+
+	// Magic command to start TLS
+	err = binary.Write(nc, binary.BigEndian, []int32{8, 80877103})
+	if err != nil {
+		return nil, err
+	}
+
+	response := make([]byte, 1)
+	if _, err = io.ReadFull(nc, response); err != nil {
+		return nil, err
+	}
+
+	if response[0] != 'S' {
+		return nil, ErrNoPostgresTLS
+	}
+
+	// TLS request accepted, so setup TLS and send a startup message to initialize
+	// the certificate chain.
+
+	tc := tls.Client(nc, config)
+
+	startupMsg := pgproto3.StartupMessage{
+		ProtocolVersion: pgproto3.ProtocolVersionNumber,
+		Parameters: map[string]string{
+			"user":     "ccheck",
+			"password": "ccheck",
+			"database": "ccheck",
+		},
+	}
+
+	if _, err := tc.Write(startupMsg.Encode(nil)); err != nil {
+		return nil, err
+	}
+
+	cs := tc.ConnectionState()
+	ret := cs.PeerCertificates
+
+	return ret, nil
+}
+
 func evalCerts(certs []*x509.Certificate, r Result, start time.Time) (Result, error) {
 	var ret Result
 	var err error
@@ -237,6 +293,7 @@ func ProcessCert(spec string, config *tls.Config, p Protocol) (Result, error) {
 	switch p {
 	case PSOCKET:
 		var conn *tls.Conn
+
 		conn, err = tls.Dial("tcp", spec, config)
 		if err == nil {
 			defer conn.Close()
@@ -252,9 +309,6 @@ func ProcessCert(spec string, config *tls.Config, p Protocol) (Result, error) {
 	case PSMTPSTARTTLS:
 		var certs []*x509.Certificate
 
-		targetName := (strings.SplitN(spec, ":", 2))[0]
-		config.ServerName = targetName
-
 		certs, err = GetValidSTARTTLSCert(spec, config)
 		if err != nil {
 			return r, err
@@ -266,7 +320,19 @@ func ProcessCert(spec string, config *tls.Config, p Protocol) (Result, error) {
 
 		return evalCerts(certs, r, start)
 	case PPG:
-		return r, fmt.Errorf("PostgreSQL protocol is still unimplemented")
+		var certs []*x509.Certificate
+
+		certs, err = GetValidPostgresCert(spec, config)
+		if err != nil {
+			return r, err
+		}
+
+		if len(certs) == 0 {
+			return r, ErrNoCerts
+		}
+
+		return evalCerts(certs, r, start)
+
 	default:
 		return r, fmt.Errorf("unimplemented protocol %d", p)
 	}

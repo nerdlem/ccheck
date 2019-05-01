@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/mndrix/tap-go"
@@ -30,11 +31,12 @@ import (
 )
 
 var (
-	minDays, numWorkers                                int
-	expired, quiet, skipVerify, tapRequested, starttls bool
-	certFile, inputFile, keyFile, rootFile             string
-	clientCertificates                                 []tls.Certificate
-	rootCertPool                                       *x509.CertPool
+	minDays, numWorkers int
+	expired, postgres, quiet, skipVerify,
+	tapRequested, starttls bool
+	certFile, inputFile, keyFile, rootFile string
+	clientCertificates                     []tls.Certificate
+	rootCertPool                           *x509.CertPool
 )
 
 // CertResult holds a processed evaluation of a Spec
@@ -52,19 +54,27 @@ var t *tap.T
 
 // processWorker processes a spec concurrently
 func processWorker(s <-chan string, c chan<- CertResult) {
-	config := tls.Config{
-		Certificates:       clientCertificates,
-		InsecureSkipVerify: skipVerify,
-		RootCAs:            rootCertPool,
-	}
-
 	proto := cert.PSOCKET
+
 	if starttls {
 		proto = cert.PSMTPSTARTTLS
 	}
 
+	if postgres {
+		proto = cert.PPG
+	}
+
 	for spec := range s {
 		cr := CertResult{Spec: spec}
+		targetName := (strings.SplitN(spec, ":", 2))[0]
+
+		config := tls.Config{
+			Certificates:       clientCertificates,
+			InsecureSkipVerify: skipVerify,
+			RootCAs:            rootCertPool,
+			ServerName:         targetName,
+		}
+
 		r, err := cert.ProcessCert(spec, &config, proto)
 		if err != nil {
 			cr.Err = err
@@ -269,6 +279,7 @@ func init() {
 	RootCmd.PersistentFlags().BoolVar(&expired, "show-expired", false, "Match expired or close-to-expiry certs")
 	RootCmd.PersistentFlags().BoolVarP(&skipVerify, "skip-verify", "s", false, "Skip certificate verification")
 	RootCmd.PersistentFlags().BoolVarP(&starttls, "starttls", "S", false, "SMTP STARTTLS checking")
+	RootCmd.PersistentFlags().BoolVarP(&postgres, "postgres", "P", false, "PostgreSQL checking")
 	RootCmd.PersistentFlags().BoolVarP(&tapRequested, "tap", "t", false, "Produce TAP output")
 }
 

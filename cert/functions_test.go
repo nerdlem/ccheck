@@ -117,7 +117,9 @@ func TestSTARTTLS(t *testing.T) {
 
 		t.Logf("testing STARTTLS spec %s", spec)
 
-		tc := tls.Config{}
+		tc := tls.Config{
+			ServerName: "ccheck.libertad.link",
+		}
 
 		r, err := ProcessCert(spec, &tc, PSMTPSTARTTLS)
 
@@ -135,7 +137,35 @@ func TestSTARTTLS(t *testing.T) {
 			t.Errorf("days left for spec %s is %d, which is suspicious", spec, r.DaysLeft)
 		}
 	}
+}
 
+func TestSTARTTLSBadName(t *testing.T) {
+	t.Logf("These tests need Internet connectivity")
+
+	for _, spec := range []string{"ccheck.libertad.link:587"} {
+
+		t.Logf("testing STARTTLS spec %s w/bogus ServerName", spec)
+
+		tc := tls.Config{
+			ServerName: "ccheck.libertad.invalid",
+		}
+
+		r, err := ProcessCert(spec, &tc, PSMTPSTARTTLS)
+
+		t.Logf("result is %s", r.String())
+
+		if err == nil {
+			t.Errorf("expecting a validation error")
+		}
+
+		if r.Success {
+			t.Errorf("spec %s should fail validation", spec)
+		}
+
+		if r.DaysLeft >= 0 {
+			t.Errorf("days left for spec %s is %d, which is suspicious", spec, r.DaysLeft)
+		}
+	}
 }
 
 func TestProcessCert(t *testing.T) {
