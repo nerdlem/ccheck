@@ -30,6 +30,20 @@ type Result struct {
 	Delay time.Duration
 }
 
+// Protocol is used to encode the protocol to use to get TLS certificates from
+// the server side.
+type Protocol int
+
+const (
+	// PSOCKET is a plain old TLS socket
+	PSOCKET Protocol = iota
+	// PSMTPSTARTTLS is an ESMTP session in which STARTTLS is used to access TLS
+	// certificates.
+	PSMTPSTARTTLS
+	// PPG is a PostgreSQL session
+	PPG
+)
+
 // String satisfies the Stringer interface
 func (r *Result) String() string {
 	res := fmt.Sprintf("Success=%v, DaysLeft=%d, Delay=%0.3f cert is", r.Success, r.DaysLeft, r.Delay.Seconds())
@@ -182,24 +196,66 @@ func GetValidSTARTTLSCert(spec string, config *tls.Config) ([]*x509.Certificate,
 	return ret, nil
 }
 
+func evalCerts(certs []*x509.Certificate, r Result, start time.Time) (Result, error) {
+	var ret Result
+	var err error
+
+	for i, c := range certs {
+		if i == 0 {
+			ret = r
+		}
+
+		r, err = Check(c)
+		if err != nil {
+			r.Delay = time.Now().Sub(start)
+			return r, err
+		}
+
+		if !c.IsCA {
+			ret = r
+		}
+	}
+
+	ret.Delay = time.Now().Sub(start)
+	return ret, nil
+}
+
 // ProcessCert takes a spec certificate specification, which might be a file
 // containing a PEM certificate or a dial string to connect to and obtain the
 // certificate from.
-func ProcessCert(spec string, config *tls.Config, starttls bool) (Result, error) {
+func ProcessCert(spec string, config *tls.Config, p Protocol) (Result, error) {
 
 	start := time.Now()
+	var err error
 
-	if _, err := os.Stat(spec); err == nil {
+	if _, err = os.Stat(spec); err == nil {
 		return ReadFromFile(spec)
 	}
 
 	r := Result{Success: false, DaysLeft: -1, Delay: 0 * time.Second}
 
-	if starttls {
+	switch p {
+	case PSOCKET:
+		var conn *tls.Conn
+		conn, err = tls.Dial("tcp", spec, config)
+		if err == nil {
+			defer conn.Close()
+
+			state := conn.ConnectionState()
+
+			if len(state.PeerCertificates) == 0 {
+				return Result{Success: false, DaysLeft: -1, Delay: time.Now().Sub(start)}, ErrNoCerts
+			}
+
+			return evalCerts(state.PeerCertificates, Result{}, start)
+		}
+	case PSMTPSTARTTLS:
+		var certs []*x509.Certificate
+
 		targetName := (strings.SplitN(spec, ":", 2))[0]
 		config.ServerName = targetName
 
-		certs, err := GetValidSTARTTLSCert(spec, config)
+		certs, err = GetValidSTARTTLSCert(spec, config)
 		if err != nil {
 			return r, err
 		}
@@ -208,63 +264,14 @@ func ProcessCert(spec string, config *tls.Config, starttls bool) (Result, error)
 			return r, ErrNoCerts
 		}
 
-		var ret Result
-
-		for i, c := range certs {
-			if i == 0 {
-				ret = r
-			}
-
-			r, err = Check(c)
-			if err != nil {
-				return r, err
-			}
-
-			if !c.IsCA {
-				ret = r
-			}
-		}
-
-		ret.Delay = time.Now().Sub(start)
-		return ret, nil
-	}
-
-	conn, err := tls.Dial("tcp", spec, config)
-	if err == nil {
-		defer conn.Close()
-
-		state := conn.ConnectionState()
-
-		r := Result{}
-
-		if len(state.PeerCertificates) == 0 {
-			return Result{Success: false, DaysLeft: -1, Delay: time.Now().Sub(start)}, ErrNoCerts
-		}
-
-		var ret Result
-
-		for i, c := range state.PeerCertificates {
-			if i == 0 {
-				ret = r
-			}
-
-			r, err = Check(c)
-			if err != nil {
-				r.Delay = time.Now().Sub(start)
-				return r, err
-			}
-
-			if !c.IsCA {
-				ret = r
-			}
-		}
-
-		ret.Delay = time.Now().Sub(start)
-		return ret, nil
+		return evalCerts(certs, r, start)
+	case PPG:
+		return r, fmt.Errorf("PostgreSQL protocol is still unimplemented")
+	default:
+		return r, fmt.Errorf("unimplemented protocol %d", p)
 	}
 
 	return Result{Success: false, DaysLeft: -1, Delay: time.Now().Sub(start)}, err
-
 }
 
 var (

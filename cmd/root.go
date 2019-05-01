@@ -57,9 +57,15 @@ func processWorker(s <-chan string, c chan<- CertResult) {
 		InsecureSkipVerify: skipVerify,
 		RootCAs:            rootCertPool,
 	}
+
+	proto := cert.PSOCKET
+	if starttls {
+		proto = cert.PSMTPSTARTTLS
+	}
+
 	for spec := range s {
 		cr := CertResult{Spec: spec}
-		r, err := cert.ProcessCert(spec, &config, starttls)
+		r, err := cert.ProcessCert(spec, &config, proto)
 		if err != nil {
 			cr.Err = err
 		} else {
