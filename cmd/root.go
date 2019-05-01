@@ -175,7 +175,7 @@ var RootCmd = &cobra.Command{
 	Long: `Simple SSL certificate expiration checker.
 
 Diagnostics are sent to STDERR. Certificates that pass the given
-check criteria are printed on STDOUT. Listing can be supressed
+check criteria are printed on STDOUT. Listing can be suppressed
 to support scripting applications.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
@@ -274,7 +274,7 @@ func init() {
 	RootCmd.PersistentFlags().StringVarP(&inputFile, "input-file", "i", "", "Read cert specs from file")
 	RootCmd.PersistentFlags().IntVarP(&numWorkers, "num-workers", "n", 1, "Parallel verification workers")
 	RootCmd.PersistentFlags().IntVarP(&minDays, "min-days", "m", 15, "Minimum days left")
-	RootCmd.PersistentFlags().BoolVar(&quiet, "quiet", false, "Supress passing cert spec listing on success")
+	RootCmd.PersistentFlags().BoolVar(&quiet, "quiet", false, "Suppress passing cert spec listing on success")
 	RootCmd.PersistentFlags().StringVarP(&rootFile, "root-certs", "r", "", "Provide specific root certs for validation")
 	RootCmd.PersistentFlags().BoolVar(&expired, "show-expired", false, "Match expired or close-to-expiry certs")
 	RootCmd.PersistentFlags().BoolVarP(&skipVerify, "skip-verify", "s", false, "Skip certificate verification")
