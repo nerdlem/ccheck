@@ -114,6 +114,26 @@ ok 4 - smtp.outlook.com:587 expires in 726 days (took 5.841 secs)
 1..4
 ```
 
+### PostgreSQL certificate validation
+
+The `--postgres` command line flag instructs `ccheck` to treat the connection coordinates as the hostname and port number of a PostgreSQL database server. It then attempts a connection and uses the native line protocol to start a TLS session in which the server certificates are obtained and tested:
+
+```
+$ ccheck --tap --postgres babar.elephantsql.com:5432
+TAP version 13
+not ok 1 - babar.elephantsql.com:5432 x509: certificate is valid for ip-10-164-15-12.ec2.internal, not babar.elephantsql.com
+1..1
+```
+
+In the case above, the TLS certificate does not match the host name, so normal validation fails. If you're simply interested in checking the expiration date, you can add the `--skip-verify` flag as follows:
+
+```
+$ ccheck --tap --skip-verify --postgres babar.elephantsql.com:5432
+TAP version 13
+ok 1 - babar.elephantsql.com:5432 expires in 1647 days (took 0.427 secs)
+1..1
+```
+
 ### Specify list of certificates to check via a file
 
 To ease testing, a list of certificate specs can be placed on a file:
