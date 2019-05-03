@@ -84,7 +84,36 @@ func TestLocal(t *testing.T) {
 	}
 }
 
-func TestExternal(t *testing.T) {
+func TestExternalPostgreSQL(t *testing.T) {
+	t.Logf("These tests need Internet connectivity")
+
+	for _, spec := range []string{"babar.elephantsql.com:5432"} {
+
+		t.Logf("testing spec %s", spec)
+
+		cfg := tls.Config{
+			InsecureSkipVerify: true,
+		}
+
+		r, err := ProcessCert(spec, &cfg, PPG)
+
+		t.Logf("result is %s", r.String())
+
+		if err != nil {
+			t.Errorf("unexpected error %s", err)
+		}
+
+		if !r.Success {
+			t.Errorf("spec %s should have a valid certificate", spec)
+		}
+
+		if r.DaysLeft <= 0 {
+			t.Errorf("days left for spec %s is %d, which is suspicious", spec, r.DaysLeft)
+		}
+	}
+}
+
+func TestExternalHTTPS(t *testing.T) {
 
 	t.Logf("These tests need Internet connectivity")
 
@@ -110,7 +139,7 @@ func TestExternal(t *testing.T) {
 	}
 }
 
-func TestSTARTTLS(t *testing.T) {
+func TestESMTPSTARTTLS(t *testing.T) {
 	t.Logf("These tests need Internet connectivity")
 
 	for _, spec := range []string{"ccheck.libertad.link:587"} {
@@ -121,7 +150,7 @@ func TestSTARTTLS(t *testing.T) {
 			ServerName: "ccheck.libertad.link",
 		}
 
-		r, err := ProcessCert(spec, &tc, PSMTPSTARTTLS)
+		r, err := ProcessCert(spec, &tc, PSTARTTLS)
 
 		t.Logf("result is %s", r.String())
 
@@ -139,7 +168,7 @@ func TestSTARTTLS(t *testing.T) {
 	}
 }
 
-func TestSTARTTLSBadName(t *testing.T) {
+func TestESMTPSTARTTLSBadName(t *testing.T) {
 	t.Logf("These tests need Internet connectivity")
 
 	for _, spec := range []string{"ccheck.libertad.link:587"} {
@@ -150,7 +179,7 @@ func TestSTARTTLSBadName(t *testing.T) {
 			ServerName: "ccheck.libertad.invalid",
 		}
 
-		r, err := ProcessCert(spec, &tc, PSMTPSTARTTLS)
+		r, err := ProcessCert(spec, &tc, PSTARTTLS)
 
 		t.Logf("result is %s", r.String())
 

@@ -41,9 +41,9 @@ type Protocol int
 const (
 	// PSOCKET is a plain old TLS socket
 	PSOCKET Protocol = iota
-	// PSMTPSTARTTLS is an ESMTP session in which STARTTLS is used to access TLS
+	// PSTARTTLS is a session in which STARTTLS is used to access TLS
 	// certificates.
-	PSMTPSTARTTLS
+	PSTARTTLS
 	// PPG is a PostgreSQL session
 	PPG
 )
@@ -77,9 +77,13 @@ var ErrNoCerts = fmt.Errorf("no certificates to process")
 // STARTTLS is even attempted
 var ErrNoESMTP = fmt.Errorf("SMTP server does not speak ESMTP")
 
-// ErrNoSTARTTLS indicates that the SMTP server does not advertise STARTTLS
-// support after EHLO
-var ErrNoSTARTTLS = fmt.Errorf("SMTP server does not announce STARTTLS")
+// ErrNoSTARTTLS indicates that the remote server does not advertise STARTTLS
+// support
+var ErrNoSTARTTLS = fmt.Errorf("Remote server does not announce STARTTLS")
+
+// ErrUnsupportedSTARTTLS is returned when the remote server does not speak a
+// protocol for which we support STARTTLS
+var ErrUnsupportedSTARTTLS = fmt.Errorf("Unknown / unsupported protocol for STARTTLS")
 
 // ErrNoPostgresTLS indicates that the PotgreSQL server did not accept our
 // attempt to setup TLS.
@@ -88,10 +92,11 @@ var ErrNoPostgresTLS = fmt.Errorf("PostgreSQL does not seem to support TLS")
 // TNewConn is the interval to wait for a new connection to the MTA to complete
 var TNewConn = 30 * time.Second
 
-// TGreeting is the interval to wait for the MTA greeting after connecting
+// TGreeting is the interval to wait for the server greeting after connecting
 var TGreeting = 10 * time.Second
 
-// TEHLO is the interval to wait our EHLO command to be accepted and replied to
+// TEHLO is the interval to wait our EHLO command to be accepted and replied to,
+// for SMTP servers
 var TEHLO = 10 * time.Second
 
 // TSTARTTLS is the interval to wait for out STARTTLS to be accepted and responded
@@ -103,39 +108,20 @@ var TTLS = 10 * time.Second
 // TNOOP is the interval to wait for the NOOP command issued upon TLS to complete
 var TNOOP = 10 * time.Second
 
-// TQUIT is the interval to wait for our final QUIT command to be accepted and responded
+// TQUIT is the interval to wait for our final QUIT command to be accepted and
+// responded. Also used for the LOGOUT IMAP command for IMAP servers
 var TQUIT = 10 * time.Second
 
-// GetValidSTARTTLSCert connects to a SMTP server and retrieves and validates
-// the certificate obtained through a valid protocol negotiation.
-func GetValidSTARTTLSCert(spec string, config *tls.Config) ([]*x509.Certificate, error) {
+func doSMTPStartTLS(nc net.Conn, spec string, config *tls.Config) ([]*x509.Certificate, error) {
 
-	var hostName, msg string
 	var tconn *textproto.Conn
-
-	nc, err := net.DialTimeout("tcp", spec, TNewConn)
-	if err != nil {
-		return nil, err
-	}
+	var msg string
 
 	conn := textproto.NewConn(nc)
 
-	// Accept any 2xx greeting or bust
-	nc.SetDeadline(time.Now().Add(TGreeting))
-	_, msg, err = conn.Reader.ReadResponse(2)
-	if err != nil {
-		return nil, err
-	}
-
-	// This is a very liberal test, as the spec requires this to be immediately
-	// following the FQDN in the greeting.
-	if !strings.Contains(msg, "ESMTP") {
-		return nil, ErrNoESMTP
-	}
-
 	// EHLO FQDN
 
-	hostName, err = os.Hostname()
+	hostName, err := os.Hostname()
 	if err != nil {
 		return nil, err
 	}
@@ -202,6 +188,49 @@ func GetValidSTARTTLSCert(spec string, config *tls.Config) ([]*x509.Certificate,
 	}
 
 	return ret, nil
+}
+
+// GetValidSTARTTLSCert connects to a server, determines the underlying protocol
+// and if supported, forwards to the correct handler method. Otherwise returns
+// an appropriate error.
+func GetValidSTARTTLSCert(spec string, config *tls.Config) ([]*x509.Certificate, error) {
+
+	var msg string
+
+	nc, err := net.DialTimeout("tcp", spec, TNewConn)
+	if err != nil {
+		return nil, err
+	}
+
+	conn := textproto.NewConn(nc)
+
+	// Accept any 2xx greeting or bust
+	nc.SetDeadline(time.Now().Add(TGreeting))
+	_, msg, err = conn.Reader.ReadResponse(2)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check for known protocols and pass control to the right handler method.
+
+	if strings.Contains(msg, "SMTP") {
+		if !strings.Contains(msg, "ESMTP") {
+			return nil, ErrNoESMTP
+		}
+
+		return doSMTPStartTLS(nc, spec, config)
+	}
+
+	if strings.HasPrefix(msg, "* OK") && strings.Contains(msg, "IMAP") {
+		if !strings.Contains(msg, "STARTTLS") {
+			return nil, ErrNoSTARTTLS
+		}
+
+		// TODO: Call IMAP handler
+		panic("IMAP handler not implemented")
+	}
+
+	return nil, ErrUnsupportedSTARTTLS
 }
 
 // GetValidPostgresCert connects to a SMTP server and retrieves and validates
@@ -306,7 +335,7 @@ func ProcessCert(spec string, config *tls.Config, p Protocol) (Result, error) {
 
 			return evalCerts(state.PeerCertificates, Result{}, start)
 		}
-	case PSMTPSTARTTLS:
+	case PSTARTTLS:
 		var certs []*x509.Certificate
 
 		certs, err = GetValidSTARTTLSCert(spec, config)

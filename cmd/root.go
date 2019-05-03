@@ -57,7 +57,7 @@ func processWorker(s <-chan string, c chan<- CertResult) {
 	proto := cert.PSOCKET
 
 	if starttls {
-		proto = cert.PSMTPSTARTTLS
+		proto = cert.PSTARTTLS
 	}
 
 	if postgres {
@@ -278,7 +278,7 @@ func init() {
 	RootCmd.PersistentFlags().StringVarP(&rootFile, "root-certs", "r", "", "Provide specific root certs for validation")
 	RootCmd.PersistentFlags().BoolVar(&expired, "show-expired", false, "Match expired or close-to-expiry certs")
 	RootCmd.PersistentFlags().BoolVarP(&skipVerify, "skip-verify", "s", false, "Skip certificate verification")
-	RootCmd.PersistentFlags().BoolVarP(&starttls, "starttls", "S", false, "SMTP STARTTLS checking")
+	RootCmd.PersistentFlags().BoolVarP(&starttls, "starttls", "S", false, "STARTTLS checking")
 	RootCmd.PersistentFlags().BoolVarP(&postgres, "postgres", "P", false, "PostgreSQL checking")
 	RootCmd.PersistentFlags().BoolVarP(&tapRequested, "tap", "t", false, "Produce TAP output")
 }
