@@ -34,6 +34,16 @@ ok 12 - suretymail.com:443 expires in 69 days (took 0.187 secs)
 ok 13 - tupsiquiatra.expert:443 expires in 31 days (took 0.244 secs)
 ```
 
+### JSON support
+
+Output can be produced in JSON. Each spec provided in the command line will generate an entry in an array, with all available test information.
+
+```
+$ccheck --json --starttls outlook.office365.com:110
+[{"spec":"outlook.office365.com:110","result":{"success":true,"days_left":705,"cert":{"Raw":"MIIIszCCB5u⋯
+⋮
+```
+
 ### Custom certificate expiration check
 
 Check whether a given certificate will expire _soon_, or within 10,000 days as in this example. Also whether the certificate is valid for the DNS name provided, is applicable:

@@ -22,16 +22,16 @@ import (
 // Result encodes the result of validating a Certificate
 type Result struct {
 	// Success indicates whether the checking was successful or not.
-	Success bool
+	Success bool `json:"success"`
 	// DaysLeft indicates the difference between current time and expiration date
 	// of the certificate, with negative numbers indicating errors or expired
 	// certificates.
-	DaysLeft int
+	DaysLeft int `json:"days_left"`
 	// Cert points to the certificate that was checked. This is useful to
 	// piggyback checks on certificates.
-	Cert *x509.Certificate
+	Cert *x509.Certificate `json:"cert"`
 	// Delay keeps track of how long it took to perform the certificate validation
-	Delay time.Duration
+	Delay time.Duration `json:"delay"`
 }
 
 // Protocol is used to encode the protocol to use to get TLS certificates from

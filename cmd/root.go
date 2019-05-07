@@ -18,11 +18,13 @@ package cmd
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mndrix/tap-go"
 	"github.com/nerdlem/ccheck/cert"
@@ -33,7 +35,7 @@ import (
 var (
 	minDays, numWorkers int
 	expired, postgres, quiet, skipVerify,
-	tapRequested, starttls bool
+	tapRequested, jsonRequested, starttls bool
 	certFile, inputFile, keyFile, rootFile string
 	clientCertificates                     []tls.Certificate
 	rootCertPool                           *x509.CertPool
@@ -42,11 +44,13 @@ var (
 // CertResult holds a processed evaluation of a Spec
 type CertResult struct {
 	// Spec is the certificate specification evaluated.
-	Spec string
+	Spec string `json:"spec"`
 	// Result is a pointer to the evaluation result
-	Result *cert.Result
+	Result *cert.Result `json:"result"`
 	// Err contains any error found during evaluation
-	Err error
+	Err error `json:"error"`
+	// Timestamp for the result
+	Timestamp string `json:"timestamp"`
 }
 
 var wg sync.WaitGroup
@@ -65,7 +69,7 @@ func processWorker(s <-chan string, c chan<- CertResult) {
 	}
 
 	for spec := range s {
-		cr := CertResult{Spec: spec}
+		cr := CertResult{Spec: spec, Timestamp: time.Now().UTC().Format("2006-01-02 15:04:05 MST")}
 		targetName := (strings.SplitN(spec, ":", 2))[0]
 
 		config := tls.Config{
@@ -125,6 +129,13 @@ func tapOutput(c <-chan CertResult) {
 	t.AutoPlan()
 }
 
+func jsonCollector(c <-chan CertResult, results *[]CertResult) {
+	for r := range c {
+		*results = append(*results, r)
+		wg.Done()
+	}
+}
+
 // simpleOutput produces a simple output format. As a side effect, it also
 // updates the seenErrors counter.
 func simpleOutput(c <-chan CertResult) {
@@ -177,11 +188,16 @@ var RootCmd = &cobra.Command{
 Diagnostics are sent to STDERR. Certificates that pass the given
 check criteria are printed on STDOUT. Listing can be suppressed
 to support scripting applications.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
+	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		seenErrors = 0
 		var specSlice []string
+		var results []CertResult
+
+		if jsonRequested && tapRequested {
+			fmt.Fprintf(os.Stderr, "only one of --tap and --json can be specified\n")
+			os.Exit(2)
+		}
 
 		if rootFile == "" {
 			rootCertPool = nil
@@ -233,6 +249,8 @@ to support scripting applications.`,
 
 		if tapRequested {
 			go tapOutput(cCert)
+		} else if jsonRequested {
+			go jsonCollector(cCert, &results)
 		} else {
 			go simpleOutput(cCert)
 		}
@@ -248,6 +266,16 @@ to support scripting applications.`,
 
 		if tapRequested && t != nil {
 			t.AutoPlan()
+		}
+
+		if jsonRequested {
+			b, err := json.Marshal(results)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error marshaling JSON result: %s", err)
+				os.Exit(2)
+			}
+
+			fmt.Println(string(b))
 		}
 
 		if seenErrors > 0 {
@@ -281,6 +309,7 @@ func init() {
 	RootCmd.PersistentFlags().BoolVarP(&starttls, "starttls", "S", false, "STARTTLS checking")
 	RootCmd.PersistentFlags().BoolVarP(&postgres, "postgres", "P", false, "PostgreSQL checking")
 	RootCmd.PersistentFlags().BoolVarP(&tapRequested, "tap", "t", false, "Produce TAP output")
+	RootCmd.PersistentFlags().BoolVarP(&jsonRequested, "json", "j", false, "Produce JSON output")
 }
 
 // initConfig reads in config file and ENV variables if set.
