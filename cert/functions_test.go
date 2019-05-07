@@ -168,6 +168,64 @@ func TestESMTPSTARTTLS(t *testing.T) {
 	}
 }
 
+func TestIMAPSTARTTLS(t *testing.T) {
+	t.Logf("These tests need Internet connectivity")
+
+	for _, spec := range []string{"outlook.office365.com:143"} {
+
+		t.Logf("testing STARTTLS spec %s", spec)
+
+		tc := tls.Config{
+			ServerName: "outlook.office365.com",
+		}
+
+		r, err := ProcessCert(spec, &tc, PSTARTTLS)
+
+		t.Logf("result is %s", r.String())
+
+		if err != nil {
+			t.Errorf("unexpected error %s", err)
+		}
+
+		if !r.Success {
+			t.Errorf("spec %s should have a valid certificate", spec)
+		}
+
+		if r.DaysLeft <= 0 {
+			t.Errorf("days left for spec %s is %d, which is suspicious", spec, r.DaysLeft)
+		}
+	}
+}
+
+func TestPOPSTARTTLS(t *testing.T) {
+	t.Logf("These tests need Internet connectivity")
+
+	for _, spec := range []string{"outlook.office365.com:110"} {
+
+		t.Logf("testing STARTTLS spec %s", spec)
+
+		tc := tls.Config{
+			ServerName: "outlook.office365.com",
+		}
+
+		r, err := ProcessCert(spec, &tc, PSTARTTLS)
+
+		t.Logf("result is %s", r.String())
+
+		if err != nil {
+			t.Errorf("unexpected error %s", err)
+		}
+
+		if !r.Success {
+			t.Errorf("spec %s should have a valid certificate", spec)
+		}
+
+		if r.DaysLeft <= 0 {
+			t.Errorf("days left for spec %s is %d, which is suspicious", spec, r.DaysLeft)
+		}
+	}
+}
+
 func TestESMTPSTARTTLSBadName(t *testing.T) {
 	t.Logf("These tests need Internet connectivity")
 

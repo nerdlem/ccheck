@@ -197,10 +197,36 @@ func doIMAPStartTLS(nc net.Conn, spec string, config *tls.Config) ([]*x509.Certi
 
 	conn := textproto.NewConn(nc)
 
+	// Check whether this server supports STARTTLS
+
+	nc.SetDeadline(time.Now().Add(TEHLO))
+	_, err := conn.Cmd("1 CAPABILITY")
+	if err != nil {
+		return nil, err
+	}
+
+	msg = ""
+	for {
+		var line string
+		line, err = conn.Reader.ReadLine()
+		if err != nil {
+			return nil, err
+		}
+
+		msg = fmt.Sprintf("%s%s", msg, line)
+		if strings.HasPrefix(line, "1 ") {
+			break
+		}
+	}
+
+	if !strings.Contains(msg, "STARTTLS") {
+		return nil, ErrNoSTARTTLS
+	}
+
 	// Setup STARTTLS (passing conn to the TLS layer) — force SNI in case it matters
 
 	nc.SetDeadline(time.Now().Add(TSTARTTLS))
-	_, err := conn.Cmd("1 STARTTLS")
+	_, err = conn.Cmd("1 STARTTLS")
 	if err != nil {
 		return nil, err
 	}
@@ -248,6 +274,64 @@ func doIMAPStartTLS(nc net.Conn, spec string, config *tls.Config) ([]*x509.Certi
 	return ret, nil
 }
 
+func doPOPStartTLS(nc net.Conn, spec string, config *tls.Config) ([]*x509.Certificate, error) {
+
+	var tconn *textproto.Conn
+	var msg string
+
+	conn := textproto.NewConn(nc)
+
+	// Setup STARTTLS (passing conn to the TLS layer) — force SNI in case it matters
+
+	nc.SetDeadline(time.Now().Add(TSTARTTLS))
+	_, err := conn.Cmd("STLS")
+	if err != nil {
+		return nil, err
+	}
+
+	msg, err = conn.Reader.ReadLine()
+	if err != nil {
+		return nil, err
+	}
+
+	if !strings.HasPrefix(msg, "+OK") {
+		return nil, fmt.Errorf(msg)
+	}
+
+	// At this point, we're ready to pass the socket to the underlying TLS layer
+
+	nc.SetDeadline(time.Now().Add(TTLS))
+	tc := tls.Client(nc, config)
+	tconn = textproto.NewConn(tc)
+
+	// At this point, we have a TLS connection initialized so let's pull the certs
+	// out of it to return no our caller. We need to send some traffic to populate
+	// state, so let's send a NOOP at this point.
+
+	nc.SetDeadline(time.Now().Add(TNOOP))
+	if _, err = tconn.Cmd("NOOP"); err != nil {
+		return nil, err
+	}
+
+	if _, err = tconn.Reader.ReadLine(); err != nil {
+		return nil, err
+	}
+
+	cs := tc.ConnectionState()
+	ret := cs.PeerCertificates
+
+	nc.SetDeadline(time.Now().Add(TQUIT))
+	if _, err = tconn.Cmd("QUIT"); err != nil {
+		return nil, err
+	}
+
+	if _, err = tconn.Reader.ReadLine(); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
 func getGreeting(conn *textproto.Conn) (string, error) {
 	msg := ""
 
@@ -259,6 +343,11 @@ func getGreeting(conn *textproto.Conn) (string, error) {
 
 		// Is it IMAP? Then return right away
 		if strings.HasPrefix(buf, "* OK") {
+			return buf, nil
+		}
+
+		// Perhaps POP?
+		if strings.HasPrefix(buf, "+OK") {
 			return buf, nil
 		}
 
@@ -309,12 +398,12 @@ func GetValidSTARTTLSCert(spec string, config *tls.Config) ([]*x509.Certificate,
 		return doSMTPStartTLS(nc, spec, config)
 	}
 
-	if strings.HasPrefix(msg, "* OK") && strings.Contains(msg, "IMAP") {
-		if !strings.Contains(msg, "STARTTLS") {
-			return nil, ErrNoSTARTTLS
-		}
-
+	if strings.HasPrefix(msg, "* OK") {
 		return doIMAPStartTLS(nc, spec, config)
+	}
+
+	if strings.HasPrefix(msg, "+OK") {
+		return doPOPStartTLS(nc, spec, config)
 	}
 
 	// return nil, ErrUnsupportedSTARTTLS
