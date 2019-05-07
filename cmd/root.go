@@ -187,7 +187,11 @@ var RootCmd = &cobra.Command{
 
 Diagnostics are sent to STDERR. Certificates that pass the given
 check criteria are printed on STDOUT. Listing can be suppressed
-to support scripting applications.`,
+to support scripting applications.
+
+Certificates to check can be specified as the filename of the PEM-encoded
+container for the X.509 certificate or a <host:port> tuple resembling a
+Go dial string.`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		seenErrors = 0
