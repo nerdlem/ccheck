@@ -105,7 +105,7 @@ func simpleOutput(c <-chan CertResult) {
 
 // setupWorkers launches the required number of workers as per the configuration
 // / CLI arguments, setting up the required channels.
-func setupWorkers() chan Spec {
+func setupWorkers(cons Consumer) chan Spec {
 	cSpec = make(chan Spec, 100)
 	cCert := make(chan CertResult, 100)
 
@@ -113,14 +113,7 @@ func setupWorkers() chan Spec {
 		go processWorker(cSpec, cCert)
 	}
 
-	if tapRequested {
-		go tapOutput(cCert)
-	} else if jsonRequested {
-		go jsonCollector(cCert)
-	} else {
-		go simpleOutput(cCert)
-	}
-
+	go cons(cCert)
 	return cSpec
 }
 

@@ -75,7 +75,7 @@ func handleTLS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	domains := strings.Split(vars["speclist"], ",")
-	res := make([]CertResult, len(domains))
+	res := []CertResult{}
 	var wg sync.WaitGroup
 
 	for _, d := range domains {
@@ -85,7 +85,6 @@ func handleTLS(w http.ResponseWriter, r *http.Request) {
 
 	wg.Wait()
 
-	_ = wantJSON
 	_ = protocol
 	w.WriteHeader(http.StatusOK)
 
@@ -120,7 +119,7 @@ var serverCmd = &cobra.Command{
 			WriteTimeout: viper.GetDuration("server.http_write"),
 		}
 
-		cSpec = setupWorkers()
+		cSpec = setupWorkers(jsonCollector)
 
 		log.Fatal(srv.ListenAndServe())
 	},

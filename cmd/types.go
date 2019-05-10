@@ -30,3 +30,6 @@ type Spec struct {
 	// WG is used for synchronization
 	WG *sync.WaitGroup `json:"-"`
 }
+
+// Consumer is a function that consume CertResult objects via an input channel
+type Consumer func(<-chan CertResult)

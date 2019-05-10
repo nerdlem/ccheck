@@ -99,7 +99,15 @@ Go dial string.`,
 			}
 		}
 
-		cSpec = setupWorkers()
+		consumer := simpleOutput
+
+		if tapRequested {
+			consumer = tapOutput
+		} else if jsonRequested {
+			consumer = jsonCollector
+		}
+
+		cSpec = setupWorkers(consumer)
 
 		for _, spec := range specSlice {
 			wg.Add(1)
