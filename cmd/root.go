@@ -22,9 +22,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"strings"
 	"sync"
-	"time"
 
 	"github.com/mndrix/tap-go"
 	"github.com/nerdlem/ccheck/cert"
@@ -32,151 +30,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	minDays, numWorkers int
-	expired, postgres, quiet, skipVerify,
-	tapRequested, jsonRequested, starttls bool
-	certFile, inputFile, keyFile, rootFile string
-	clientCertificates                     []tls.Certificate
-	rootCertPool                           *x509.CertPool
-)
-
-// CertResult holds a processed evaluation of a Spec
-type CertResult struct {
-	// Spec is the certificate specification evaluated.
-	Spec string `json:"spec"`
-	// Result is a pointer to the evaluation result
-	Result *cert.Result `json:"result"`
-	// Err contains any error found during evaluation
-	Err error `json:"error"`
-	// Timestamp for the result
-	Timestamp string `json:"timestamp"`
-}
-
-var wg sync.WaitGroup
 var t *tap.T
-
-// processWorker processes a spec concurrently
-func processWorker(s <-chan string, c chan<- CertResult) {
-	proto := cert.PSOCKET
-
-	if starttls {
-		proto = cert.PSTARTTLS
-	}
-
-	if postgres {
-		proto = cert.PPG
-	}
-
-	for spec := range s {
-		cr := CertResult{Spec: spec, Timestamp: time.Now().UTC().Format("2006-01-02 15:04:05 MST")}
-		targetName := (strings.SplitN(spec, ":", 2))[0]
-
-		config := tls.Config{
-			Certificates:       clientCertificates,
-			InsecureSkipVerify: skipVerify,
-			RootCAs:            rootCertPool,
-			ServerName:         targetName,
-		}
-
-		r, err := cert.ProcessCert(spec, &config, proto)
-		if err != nil {
-			cr.Err = err
-		} else {
-			cr.Result = &r
-		}
-
-		c <- cr
-	}
-}
-
-// tapOutput produces TAP formatted output. As a side effect, it also
-// updates the seenErrors counter.
-func tapOutput(c <-chan CertResult) {
-	t = tap.New()
-	t.Header(0)
-
-	for r := range c {
-		if r.Err != nil {
-			t.Fail(fmt.Sprintf("%s %s", r.Spec, r.Err))
-			seenErrors++
-			wg.Done()
-			continue
-		}
-
-		if !r.Result.Success {
-			t.Fail(fmt.Sprintf("%s failed (took %0.3f secs)", r.Spec, r.Result.Delay.Seconds()))
-			seenErrors++
-			wg.Done()
-			continue
-		}
-
-		if minDays != 0 {
-			if minDays > r.Result.DaysLeft {
-				t.Fail(fmt.Sprintf("%s expires in %d days (took %0.3f secs)",
-					r.Spec, r.Result.DaysLeft, r.Result.Delay.Seconds()))
-				seenErrors++
-			} else {
-				t.Pass(fmt.Sprintf("%s expires in %d days (took %0.3f secs)",
-					r.Spec, r.Result.DaysLeft, r.Result.Delay.Seconds()))
-			}
-		} else {
-			t.Pass(fmt.Sprintf("%s not expired (took %0.3f secs)", r.Spec, r.Result.Delay.Seconds()))
-		}
-		wg.Done()
-	}
-
-	t.AutoPlan()
-}
-
-func jsonCollector(c <-chan CertResult, results *[]CertResult) {
-	for r := range c {
-		*results = append(*results, r)
-		wg.Done()
-	}
-}
-
-// simpleOutput produces a simple output format. As a side effect, it also
-// updates the seenErrors counter.
-func simpleOutput(c <-chan CertResult) {
-	for r := range c {
-		if r.Err != nil {
-			fmt.Fprintf(os.Stderr, "%s: %s\n", r.Spec, r.Err)
-			seenErrors++
-			wg.Done()
-			continue
-		}
-
-		if !r.Result.Success {
-			fmt.Fprintf(os.Stderr, "%s: failed\n", r.Spec)
-			seenErrors++
-			wg.Done()
-			continue
-		}
-
-		if minDays != 0 {
-			if minDays > r.Result.DaysLeft {
-				fmt.Fprintf(os.Stderr, "%s: expires in %d days\n", r.Spec, r.Result.DaysLeft)
-				if expired {
-					if !quiet {
-						fmt.Printf("%s\n", r.Spec)
-					}
-				} else {
-					seenErrors++
-				}
-				wg.Done()
-				continue
-			}
-		}
-
-		if !quiet && !expired {
-			fmt.Printf("%s\n", r.Spec)
-		}
-
-		wg.Done()
-	}
-}
-
 var seenErrors int
 
 // RootCmd represents the base command when called without any subcommands
@@ -197,6 +51,7 @@ Go dial string.`,
 		seenErrors = 0
 		var specSlice []string
 		var results []CertResult
+		var wg sync.WaitGroup
 
 		if jsonRequested && tapRequested {
 			fmt.Fprintf(os.Stderr, "only one of --tap and --json can be specified\n")
@@ -244,24 +99,11 @@ Go dial string.`,
 			}
 		}
 
-		cSpec := make(chan string, 100)
-		cCert := make(chan CertResult, 100)
-
-		for i := 0; i < numWorkers; i++ {
-			go processWorker(cSpec, cCert)
-		}
-
-		if tapRequested {
-			go tapOutput(cCert)
-		} else if jsonRequested {
-			go jsonCollector(cCert, &results)
-		} else {
-			go simpleOutput(cCert)
-		}
+		cSpec = setupWorkers()
 
 		for _, spec := range specSlice {
 			wg.Add(1)
-			cSpec <- spec
+			cSpec <- Spec{Value: spec, Accumulator: &results, WG: &wg}
 		}
 
 		close(cSpec)
@@ -314,9 +156,40 @@ func init() {
 	RootCmd.PersistentFlags().BoolVarP(&postgres, "postgres", "P", false, "PostgreSQL checking")
 	RootCmd.PersistentFlags().BoolVarP(&tapRequested, "tap", "t", false, "Produce TAP output")
 	RootCmd.PersistentFlags().BoolVarP(&jsonRequested, "json", "j", false, "Produce JSON output")
-}
 
-// initConfig reads in config file and ENV variables if set.
-func initConfig() {
-	viper.AutomaticEnv() // read in environment variables that match
+	viper.BindPFlag("tls.skip_verify", RootCmd.PersistentFlags().Lookup("skip-verify"))
+	viper.BindPFlag("tls.client_cert_pem", RootCmd.PersistentFlags().Lookup("client-cert"))
+	viper.BindPFlag("tls.client_key_pem", RootCmd.PersistentFlags().Lookup("client-key"))
+	viper.BindPFlag("tls.root_certs_pem", RootCmd.PersistentFlags().Lookup("root-certs"))
+
+	viper.BindPFlag("check.workers", RootCmd.PersistentFlags().Lookup("num-workers"))
+	viper.BindPFlag("check.min_days", RootCmd.PersistentFlags().Lookup("min-days"))
+
+	viper.SetDefault("check.workers", "1")
+	viper.SetDefault("check.min_days", "15")
+
+	viper.SetDefault("server.bind", "127.0.0.1:1981")
+	viper.SetDefault("server.http_idle", "30s")
+	viper.SetDefault("server.http_read", "15s")
+	viper.SetDefault("server.http_write", "15s")
+	viper.SetDefault("server.prefix", "")
+
+	viper.SetDefault("timeout.http_idle", "30s")
+	viper.SetDefault("timeout.http_read", "15s")
+	viper.SetDefault("timeout.http_write", "15s")
+	viper.SetDefault("timeout.idle_conn", "60s")
+	viper.SetDefault("timeout.server_request", "60s")
+	viper.SetDefault("timeout.smtp_connect", "5s")
+	viper.SetDefault("timeout.smtp_ehlo", "10s")
+	viper.SetDefault("timeout.smtp_greeting", "10s")
+	viper.SetDefault("timeout.smtp_noop", "10s")
+	viper.SetDefault("timeout.smtp_quit", "10s")
+	viper.SetDefault("timeout.smtp_starttls", "10s")
+	viper.SetDefault("timeout.smtp_tls", "10s")
+	viper.SetDefault("timeout.tls_handshake", "10s")
+
+	viper.SetDefault("tls.client_cert_pem", "")
+	viper.SetDefault("tls.client_key_pem", "")
+	viper.SetDefault("tls.root_certs_pem", "")
+	viper.SetDefault("tls.skip_verify", "true")
 }

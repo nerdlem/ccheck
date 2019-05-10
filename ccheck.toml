@@ -1,0 +1,31 @@
+# This is an example configuration file for ccheck when used in server mode.
+# Default values are depicted here.
+
+[check]
+workers         = 1
+min_days        = 15
+
+[tls]
+client_cert_pem = ""
+client_key_pem  = ""
+root_certs_pem  = ""
+skip_verify     = true
+
+[server]
+bind            = "127.0.0.1:1981"
+prefix          = ""
+
+[timeout]
+http_idle       = "30s"
+http_read       = "15s"
+http_write      = "15s"
+idle_conn       = "60s"
+server_request  = "60s"
+smtp_connect    = "5s"
+smtp_ehlo       = "10s"
+smtp_greeting   = "10s"
+smtp_noop       = "10s"
+smtp_quit       = "10s"
+smtp_starttls   = "10s"
+smtp_tls        = "10s"
+tls_handshake   = "10s"
