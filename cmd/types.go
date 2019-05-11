@@ -26,6 +26,7 @@ type CertResult struct {
 // evaluation must be stored.
 type Spec struct {
 	Value       string        `json:"value"`
+	Protocol    cert.Protocol `json:"protocol"`
 	Accumulator *[]CertResult `json:"-"`
 	// WG is used for synchronization
 	WG *sync.WaitGroup `json:"-"`

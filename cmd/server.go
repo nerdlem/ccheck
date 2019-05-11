@@ -80,7 +80,12 @@ func handleTLS(w http.ResponseWriter, r *http.Request) {
 
 	for _, d := range domains {
 		wg.Add(1)
-		cSpec <- Spec{Value: d, Accumulator: &res, WG: &wg}
+		cSpec <- Spec{
+			Accumulator: &res,
+			Protocol:    protocol,
+			Value:       d,
+			WG:          &wg,
+		}
 	}
 
 	wg.Wait()

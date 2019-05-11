@@ -52,6 +52,7 @@ Go dial string.`,
 		var specSlice []string
 		var results []CertResult
 		var wg sync.WaitGroup
+		protocol := cert.PSOCKET
 
 		if jsonRequested && tapRequested {
 			fmt.Fprintf(os.Stderr, "only one of --tap and --json can be specified\n")
@@ -107,11 +108,22 @@ Go dial string.`,
 			consumer = jsonCollector
 		}
 
+		if postgres {
+			protocol = cert.PPG
+		} else if starttls {
+			protocol = cert.PSTARTTLS
+		}
+
 		cSpec = setupWorkers(consumer)
 
 		for _, spec := range specSlice {
 			wg.Add(1)
-			cSpec <- Spec{Value: spec, Accumulator: &results, WG: &wg}
+			cSpec <- Spec{
+				Accumulator: &results,
+				Protocol:    protocol,
+				Value:       spec,
+				WG:          &wg,
+			}
 		}
 
 		close(cSpec)

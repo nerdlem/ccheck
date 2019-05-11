@@ -157,16 +157,6 @@ func initConfig() {
 
 // processWorker processes a spec concurrently
 func processWorker(s <-chan Spec, c chan<- CertResult) {
-	proto := cert.PSOCKET
-
-	if starttls {
-		proto = cert.PSTARTTLS
-	}
-
-	if postgres {
-		proto = cert.PPG
-	}
-
 	for spec := range s {
 		cr := CertResult{Accumulator: spec.Accumulator, Spec: spec.Value, Timestamp: time.Now().UTC().Format("2006-01-02 15:04:05 MST"), WG: spec.WG}
 		targetName := (strings.SplitN(spec.Value, ":", 2))[0]
@@ -178,7 +168,7 @@ func processWorker(s <-chan Spec, c chan<- CertResult) {
 			ServerName:         targetName,
 		}
 
-		r, err := cert.ProcessCert(spec.Value, &config, proto)
+		r, err := cert.ProcessCert(spec.Value, &config, spec.Protocol)
 		if err != nil {
 			cr.Err = err
 		} else {

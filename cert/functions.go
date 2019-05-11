@@ -29,7 +29,7 @@ type Result struct {
 	DaysLeft int `json:"days_left"`
 	// Cert points to the certificate that was checked. This is useful to
 	// piggyback checks on certificates.
-	Cert *x509.Certificate `json:"cert"`
+	Cert *x509.Certificate `json:"-"`
 	// Delay keeps track of how long it took to perform the certificate validation
 	Delay time.Duration `json:"delay"`
 }
