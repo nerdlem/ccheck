@@ -1,0 +1,27 @@
+[Unit]
+Description=TLS checking service (%I)
+ConditionPathExists=/etc/ccheck/%i/config.toml
+PartOf=ccheck.service
+ReloadPropagatedFrom=ccheck.service
+Before=ccheck.service
+
+[Service]
+Type=simple
+PIDFile=/var/run/ccheck/ccheck-%i.pid
+WorkingDirectory=/etc/ccheck/%i
+StandardOutput=syslog
+SyslogIdentifier=ccheck-%i
+SyslogFacility=mail
+SyslogLevel=info
+# Environment variables -- No problem if either file is missing.
+# Environment variables affecting all instances
+EnvironmentFile=-/etc/default/ccheck
+# Environment variables affecting instance %i
+EnvironmentFile=-/etc/default/ccheck-%i
+ExecStartPre=-/usr/bin/install -d -m 2775 -o nobody -g nogroup /var/run/ccheck/
+ExecStart=/usr/bin/ccheck server --config /etc/ccheck/%i/config.toml
+Restart=on-failure
+RestartSec=30s
+
+[Install]
+WantedBy=multi-user.target
