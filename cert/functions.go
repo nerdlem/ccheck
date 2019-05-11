@@ -29,7 +29,7 @@ type Result struct {
 	DaysLeft int `json:"days_left"`
 	// Cert points to the certificate that was checked. This is useful to
 	// piggyback checks on certificates.
-	Cert *x509.Certificate `json:"-"`
+	Cert *x509.Certificate `json:"cert"`
 	// Delay keeps track of how long it took to perform the certificate validation
 	Delay time.Duration `json:"delay"`
 }
@@ -88,6 +88,9 @@ var ErrUnsupportedSTARTTLS = fmt.Errorf("Unknown / unsupported protocol for STAR
 // ErrNoPostgresTLS indicates that the PotgreSQL server did not accept our
 // attempt to setup TLS.
 var ErrNoPostgresTLS = fmt.Errorf("PostgreSQL does not seem to support TLS")
+
+// ErrNoTLS indicates that the specified endpoint did not complete the TLS handshake.
+var ErrNoTLS = fmt.Errorf("Unable to complete TLS handshake")
 
 // TNewConn is the interval to wait for a new connection to the MTA to complete
 var TNewConn = 30 * time.Second
@@ -511,6 +514,10 @@ func ProcessCert(spec string, config *tls.Config, p Protocol) (Result, error) {
 			}
 
 			return evalCerts(state.PeerCertificates, Result{}, start)
+		}
+
+		if err == io.EOF {
+			err = ErrNoTLS
 		}
 	case PSTARTTLS:
 		var certs []*x509.Certificate

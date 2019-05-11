@@ -14,6 +14,8 @@ type CertResult struct {
 	Result *cert.Result `json:"result"`
 	// Err contains any error found during evaluation
 	Err error `json:"error"`
+	// ErrString contains a stringified error message
+	ErrString string `json:"error_string"`
 	// Timestamp for the result
 	Timestamp string `json:"timestamp"`
 	// Accumulator points to the array where results should be placed

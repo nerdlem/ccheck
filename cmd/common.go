@@ -171,6 +171,7 @@ func processWorker(s <-chan Spec, c chan<- CertResult) {
 		r, err := cert.ProcessCert(spec.Value, &config, spec.Protocol)
 		if err != nil {
 			cr.Err = err
+			cr.ErrString = fmt.Sprintf("%s", err)
 		} else {
 			cr.Result = &r
 			cr.WG = spec.WG
