@@ -46,13 +46,17 @@ to support scripting applications.
 Certificates to check can be specified as the filename of the PEM-encoded
 container for the X.509 certificate or a <host:port> tuple resembling a
 Go dial string.`,
-	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		seenErrors = 0
 		var specSlice []string
 		var results []CertResult
 		var wg sync.WaitGroup
 		protocol := cert.PSOCKET
+
+		if len(args) == 0 && inputFile == "" {
+			fmt.Fprintf(os.Stderr, "must provide one or more endpoint specs or use --input-file\n")
+			os.Exit(2)
+		}
 
 		if jsonRequested && tapRequested {
 			fmt.Fprintf(os.Stderr, "only one of --tap and --json can be specified\n")
