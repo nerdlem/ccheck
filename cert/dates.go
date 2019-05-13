@@ -29,7 +29,8 @@ func evalCerts(certs []*x509.Certificate, r *Result, start time.Time) error {
 }
 
 // Check validates the expiration dates of the given certificate, returning the
-// relevant data.
+// relevant data. DaysLeft is calculated so as to return the min number of days
+// remaining for any certificate in the chain.
 func Check(c *x509.Certificate, r *Result) error {
 	if c == nil {
 		r.DaysLeft = -1
@@ -40,7 +41,11 @@ func Check(c *x509.Certificate, r *Result) error {
 
 	now := time.Now()
 
-	r.DaysLeft = int(c.NotAfter.Sub(now).Round(time.Hour).Hours() / 24)
+	dl := int(c.NotAfter.Sub(now).Round(time.Hour).Hours() / 24)
+	if r.DaysLeft == 0 || dl < r.DaysLeft {
+		r.DaysLeft = dl
+	}
+
 	r.Success = true
 
 	if !now.After(c.NotBefore) {
