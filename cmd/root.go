@@ -46,6 +46,7 @@ to support scripting applications.
 Certificates to check can be specified as the filename of the PEM-encoded
 container for the X.509 certificate or a <host:port> tuple resembling a
 Go dial string.`,
+	Args: cobra.MinimumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
 		seenErrors = 0
 		var specSlice []string
