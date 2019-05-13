@@ -20,6 +20,11 @@ func unwrapError(err error, r *Result) {
 		r.Cert = hErr.Certificate
 		_ = Check(r.Cert, r)
 	}
+
+	if hErr, ok := err.(x509.CertificateInvalidError); ok {
+		r.Cert = hErr.Cert
+		_ = Check(r.Cert, r)
+	}
 }
 
 // ProcessCert takes a spec certificate specification, which might be a file
