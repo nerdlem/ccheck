@@ -271,13 +271,10 @@ func TestProcessCert(t *testing.T) {
 		NotAfter:  time.Now().Add(9 * 24 * time.Hour),
 	}
 
-	r, err := Check(&current)
+	r := Result{}
+	err := Check(&current, &r)
 
 	t.Logf("result is %s", r.String())
-
-	if r.Cert != &current {
-		t.Error("incorrect pointer to current cert returned")
-	}
 
 	if !r.Success {
 		t.Error("current Check() should be successful")
@@ -292,13 +289,9 @@ func TestProcessCert(t *testing.T) {
 		t.Error("current Check() should not return an error")
 	}
 
-	r, err = Check(&expired)
+	err = Check(&expired, &r)
 
 	t.Logf("result is %s", r.String())
-
-	if r.Cert != &expired {
-		t.Error("incorrect pointer to expired cert returned")
-	}
 
 	if r.Success {
 		t.Error("expired Check() should not be successful")
@@ -314,13 +307,9 @@ func TestProcessCert(t *testing.T) {
 		t.Error("checking an expired certificate should return a suitable error")
 	}
 
-	r, err = Check(&future)
+	err = Check(&future, &r)
 
 	t.Logf("result is %s", r.String())
-
-	if r.Cert != &future {
-		t.Error("incorrect pointer to future cert returned")
-	}
 
 	if r.Success {
 		t.Error("future Check() should not be successful")
@@ -336,13 +325,9 @@ func TestProcessCert(t *testing.T) {
 		t.Error("checking an future certificate should return a suitable error")
 	}
 
-	r, err = Check(nil)
+	err = Check(nil, &r)
 
 	t.Logf("result is %s", r.String())
-
-	if r.Cert != nil {
-		t.Error("incorrect pointer to nil cert returned")
-	}
 
 	if r.Success {
 		t.Error("nil Check() should not be successful")

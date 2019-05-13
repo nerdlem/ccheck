@@ -3,6 +3,7 @@ package cert
 import (
 	"crypto/x509"
 	"fmt"
+	"regexp"
 	"time"
 )
 
@@ -103,3 +104,8 @@ var TNOOP = 10 * time.Second
 // TQUIT is the interval to wait for our final QUIT command to be accepted and
 // responded. Also used for the LOGOUT IMAP command for IMAP servers
 var TQUIT = 10 * time.Second
+
+var (
+	reComment    = regexp.MustCompile(`#.*$`)
+	reWhitespace = regexp.MustCompile(`\s+`)
+)
