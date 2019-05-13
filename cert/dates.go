@@ -42,7 +42,7 @@ func Check(c *x509.Certificate, r *Result) error {
 	now := time.Now()
 
 	dl := int(c.NotAfter.Sub(now).Round(time.Hour).Hours() / 24)
-	if r.DaysLeft == 0 || dl < r.DaysLeft {
+	if r.DaysLeft == 0 || r.DaysLeft == -1 || dl < r.DaysLeft {
 		r.DaysLeft = dl
 	}
 
