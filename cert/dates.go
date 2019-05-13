@@ -2,6 +2,7 @@ package cert
 
 import (
 	"crypto/x509"
+	"fmt"
 	"time"
 )
 
@@ -16,6 +17,7 @@ func evalCerts(certs []*x509.Certificate, r *Result) error {
 
 		if !c.IsCA {
 			r.Cert = c
+			r.CertSerial = fmt.Sprintf("%d", r.Cert.SerialNumber)
 		}
 
 		err = Check(c, r)
@@ -35,7 +37,12 @@ func Check(c *x509.Certificate, r *Result) error {
 		r.DaysLeft = -1
 		r.Expired = false
 		r.Success = false
+		r.CertSerial = ""
 		return ErrNil
+	}
+
+	if !c.IsCA {
+		r.CertSerial = fmt.Sprintf("%d", r.Cert.SerialNumber)
 	}
 
 	now := time.Now()

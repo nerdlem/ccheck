@@ -22,6 +22,9 @@ type Result struct {
 	Cert *x509.Certificate `json:"cert"`
 	// Delay keeps track of how long it took to perform the certificate validation
 	Delay time.Duration `json:"delay"`
+	// CertSerial is a string representation of the certificate's serial, so that
+	// it can be properly returned by compliant JSON processors
+	CertSerial string `json:"cert_serial"`
 }
 
 // Protocol is used to encode the protocol to use to get TLS certificates from
