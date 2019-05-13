@@ -249,7 +249,7 @@ func TestESMTPSTARTTLSBadName(t *testing.T) {
 			t.Errorf("spec %s should fail validation", spec)
 		}
 
-		if r.DaysLeft >= 0 {
+		if r.DaysLeft == -1 {
 			t.Errorf("days left for spec %s is %d, which is suspicious", spec, r.DaysLeft)
 		}
 	}

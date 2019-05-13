@@ -87,6 +87,7 @@ func ProcessCert(spec string, config *tls.Config, p Protocol) (Result, error) {
 		return r, fmt.Errorf("unimplemented protocol %d", p)
 	}
 
+	r.Success = err == nil
 	return r, err
 }
 
@@ -146,5 +147,6 @@ func ReadFromFile(name string) (Result, error) {
 	}
 
 	err = evalCerts(certs, &r, start)
+	r.Success = err == nil
 	return r, err
 }
