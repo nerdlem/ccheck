@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func evalCerts(certs []*x509.Certificate, r *Result, start time.Time) error {
+func evalCerts(certs []*x509.Certificate, r *Result) error {
 	var err error
 
 	if len(certs) == 0 {
@@ -24,7 +24,6 @@ func evalCerts(certs []*x509.Certificate, r *Result, start time.Time) error {
 		}
 	}
 
-	r.Delay = time.Now().Sub(start)
 	return err
 }
 

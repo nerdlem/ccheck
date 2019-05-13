@@ -15,11 +15,10 @@ import (
 // unwrapError captures the X509 certificate left in the error from the x509
 // package and places it in the Result r so that its data can be analyzed by our
 // caller.
-func unwrapError(err error, start time.Time, r *Result) {
+func unwrapError(err error, r *Result) {
 	if hErr, ok := err.(x509.HostnameError); ok {
 		r.Cert = hErr.Certificate
 		_ = Check(r.Cert, r)
-		r.Delay = time.Now().Sub(start)
 	}
 }
 
@@ -51,11 +50,11 @@ func ProcessCert(spec string, config *tls.Config, p Protocol) (Result, error) {
 				return Result{Success: false, DaysLeft: -1, Delay: time.Now().Sub(start)}, ErrNoCerts
 			}
 
-			err = evalCerts(state.PeerCertificates, &r, start)
+			err = evalCerts(state.PeerCertificates, &r)
 			break
 		}
 
-		unwrapError(err, start, &r)
+		unwrapError(err, &r)
 
 		if err == io.EOF {
 			err = ErrNoTLS
@@ -66,28 +65,29 @@ func ProcessCert(spec string, config *tls.Config, p Protocol) (Result, error) {
 
 		certs, err = GetValidSTARTTLSCert(spec, config)
 		if err != nil {
-			unwrapError(err, start, &r)
+			unwrapError(err, &r)
 			break
 		}
 
-		err = evalCerts(certs, &r, start)
+		err = evalCerts(certs, &r)
 
 	case PPG:
 		var certs []*x509.Certificate
 
 		certs, err = GetValidPostgresCert(spec, config)
 		if err != nil {
-			unwrapError(err, start, &r)
+			unwrapError(err, &r)
 			break
 		}
 
-		err = evalCerts(certs, &r, start)
+		err = evalCerts(certs, &r)
 
 	default:
 		return r, fmt.Errorf("unimplemented protocol %d", p)
 	}
 
 	r.Success = err == nil
+	r.Delay = time.Now().Sub(start)
 	return r, err
 }
 
@@ -146,7 +146,8 @@ func ReadFromFile(name string) (Result, error) {
 		}
 	}
 
-	err = evalCerts(certs, &r, start)
+	err = evalCerts(certs, &r)
 	r.Success = err == nil
+	r.Delay = time.Now().Sub(start)
 	return r, err
 }
