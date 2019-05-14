@@ -116,15 +116,14 @@ var serverCmd = &cobra.Command{
 
 		var h http.Handler
 
-		contentType := handlers.ContentTypeHandler(r, "application/json")
-
 		if behindProxy {
-			h = handlers.ProxyHeaders(contentType)
+			h = handlers.ProxyHeaders(r)
 		} else {
-			h = contentType
+			h = r
 		}
 
-		loggedRouter := handlers.LoggingHandler(os.Stdout, h)
+		contentType := handlers.ContentTypeHandler(h, "application/json")
+		loggedRouter := handlers.LoggingHandler(os.Stdout, contentType)
 
 		srv := &http.Server{
 			Addr:         viper.GetString("server.bind"),
