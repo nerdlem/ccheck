@@ -145,7 +145,7 @@ func init() {
 
 	serverCmd.Flags().StringVar(&cfgFile, "config", "", "config file (default is /etc/ccheck.toml)")
 
-	serverCmd.Flags().BoolVarP(&behindProxy, "behind-proxy", "P", false, "whether operating behind a proxy")
+	serverCmd.Flags().BoolVarP(&behindProxy, "behind-proxy", "B", false, "whether operating behind a proxy")
 	viper.BindPFlag("server.behind_proxy", serverCmd.Flags().Lookup("behind-proxy"))
 
 	serverCmd.Flags().StringVar(&serverBind, "bind", "127.0.0.1:1980", "where the server will be listening")
