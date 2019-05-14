@@ -193,6 +193,7 @@ func init() {
 	viper.SetDefault("check.workers", "1")
 	viper.SetDefault("check.min_days", "15")
 
+	viper.SetDefault("server.behind_proxy", "false")
 	viper.SetDefault("server.bind", "127.0.0.1:1981")
 	viper.SetDefault("server.http_idle", "30s")
 	viper.SetDefault("server.http_read", "15s")
