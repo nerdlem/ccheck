@@ -17,7 +17,8 @@ var (
 	cSpec               chan Spec
 	minDays, numWorkers int
 	expired, postgres, quiet, skipVerify,
-	tapRequested, jsonRequested, starttls bool
+	behindProxy, tapRequested, jsonRequested,
+	starttls bool
 	certFile, inputFile, keyFile, rootFile string
 	clientCertificates                     []tls.Certificate
 	rootCertPool                           *x509.CertPool

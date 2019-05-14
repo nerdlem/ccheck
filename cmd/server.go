@@ -114,7 +114,17 @@ var serverCmd = &cobra.Command{
 			viper.GetString("server.prefix")),
 			handleTLS).Methods("GET")
 
-		loggedRouter := handlers.LoggingHandler(os.Stdout, r)
+		var h http.Handler
+
+		contentType := handlers.ContentTypeHandler(r, "application/json")
+
+		if behindProxy {
+			h = handlers.ProxyHeaders(contentType)
+		} else {
+			h = contentType
+		}
+
+		loggedRouter := handlers.LoggingHandler(os.Stdout, h)
 
 		srv := &http.Server{
 			Addr:         viper.GetString("server.bind"),
@@ -134,6 +144,9 @@ func init() {
 	RootCmd.AddCommand(serverCmd)
 
 	serverCmd.Flags().StringVar(&cfgFile, "config", "", "config file (default is /etc/ccheck.toml)")
+
+	serverCmd.Flags().BoolVarP(&behindProxy, "behind-proxy", "P", false, "whether operating behind a proxy")
+	viper.BindPFlag("server.behind_proxy", serverCmd.Flags().Lookup("behind-proxy"))
 
 	serverCmd.Flags().StringVar(&serverBind, "bind", "127.0.0.1:1980", "where the server will be listening")
 	viper.BindPFlag("server.bind", serverCmd.Flags().Lookup("bind"))
