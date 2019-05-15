@@ -55,6 +55,9 @@ func ProcessCert(spec string, config *tls.Config, p Protocol) (Result, error) {
 				return Result{Success: false, DaysLeft: -1, Delay: time.Now().Sub(start)}, ErrNoCerts
 			}
 
+			r.PeerCertificates = &state.PeerCertificates
+			r.VerifiedChains = &state.VerifiedChains
+
 			err = evalCerts(state.PeerCertificates, &r)
 			break
 		}
@@ -67,23 +70,31 @@ func ProcessCert(spec string, config *tls.Config, p Protocol) (Result, error) {
 
 	case PSTARTTLS:
 		var certs []*x509.Certificate
+		var chains [][]*x509.Certificate
 
-		certs, err = GetValidSTARTTLSCert(spec, config)
+		certs, chains, err = GetValidSTARTTLSCert(spec, config)
 		if err != nil {
 			unwrapError(err, &r)
 			break
 		}
+
+		r.PeerCertificates = &certs
+		r.VerifiedChains = &chains
 
 		err = evalCerts(certs, &r)
 
 	case PPG:
 		var certs []*x509.Certificate
+		var chains [][]*x509.Certificate
 
-		certs, err = GetValidPostgresCert(spec, config)
+		certs, chains, err = GetValidPostgresCert(spec, config)
 		if err != nil {
 			unwrapError(err, &r)
 			break
 		}
+
+		r.PeerCertificates = &certs
+		r.VerifiedChains = &chains
 
 		err = evalCerts(certs, &r)
 

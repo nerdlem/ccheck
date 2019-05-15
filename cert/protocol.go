@@ -15,7 +15,7 @@ import (
 	"github.com/jackc/pgx/pgproto3"
 )
 
-func doSMTPStartTLS(nc net.Conn, spec string, config *tls.Config) ([]*x509.Certificate, error) {
+func doSMTPStartTLS(nc net.Conn, spec string, config *tls.Config) ([]*x509.Certificate, [][]*x509.Certificate, error) {
 
 	var tconn *textproto.Conn
 	var msg string
@@ -26,24 +26,24 @@ func doSMTPStartTLS(nc net.Conn, spec string, config *tls.Config) ([]*x509.Certi
 
 	hostName, err := os.Hostname()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	nc.SetDeadline(time.Now().Add(TEHLO))
 	_, err = conn.Cmd("EHLO %s", hostName)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Read response and look for STARTTLS support
 
 	_, msg, err = conn.Reader.ReadResponse(2)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if !strings.Contains(msg, "STARTTLS") {
-		return nil, ErrNoSTARTTLS
+		return nil, nil, ErrNoSTARTTLS
 	}
 
 	// Setup STARTTLS (passing conn to the TLS layer) — force SNI in case it matters
@@ -51,12 +51,12 @@ func doSMTPStartTLS(nc net.Conn, spec string, config *tls.Config) ([]*x509.Certi
 	nc.SetDeadline(time.Now().Add(TSTARTTLS))
 	_, err = conn.Cmd("STARTTLS")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	_, _, err = conn.Reader.ReadResponse(2)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// At this point, we're ready to pass the socket to the underlying TLS layer
@@ -71,29 +71,28 @@ func doSMTPStartTLS(nc net.Conn, spec string, config *tls.Config) ([]*x509.Certi
 
 	nc.SetDeadline(time.Now().Add(TNOOP))
 	if _, err = tconn.Cmd("NOOP"); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if _, _, err = tconn.Reader.ReadResponse(0); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	cs := tc.ConnectionState()
-	ret := cs.PeerCertificates
 
 	nc.SetDeadline(time.Now().Add(TQUIT))
 	if _, err = tconn.Cmd("QUIT"); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if _, _, err = tconn.Reader.ReadResponse(2); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return ret, nil
+	return cs.PeerCertificates, cs.VerifiedChains, nil
 }
 
-func doIMAPStartTLS(nc net.Conn, spec string, config *tls.Config) ([]*x509.Certificate, error) {
+func doIMAPStartTLS(nc net.Conn, spec string, config *tls.Config) ([]*x509.Certificate, [][]*x509.Certificate, error) {
 
 	var tconn *textproto.Conn
 	var msg string
@@ -105,7 +104,7 @@ func doIMAPStartTLS(nc net.Conn, spec string, config *tls.Config) ([]*x509.Certi
 	nc.SetDeadline(time.Now().Add(TEHLO))
 	_, err := conn.Cmd("1 CAPABILITY")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	msg = ""
@@ -113,7 +112,7 @@ func doIMAPStartTLS(nc net.Conn, spec string, config *tls.Config) ([]*x509.Certi
 		var line string
 		line, err = conn.Reader.ReadLine()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		msg = fmt.Sprintf("%s%s", msg, line)
@@ -123,7 +122,7 @@ func doIMAPStartTLS(nc net.Conn, spec string, config *tls.Config) ([]*x509.Certi
 	}
 
 	if !strings.Contains(msg, "STARTTLS") {
-		return nil, ErrNoSTARTTLS
+		return nil, nil, ErrNoSTARTTLS
 	}
 
 	// Setup STARTTLS (passing conn to the TLS layer) — force SNI in case it matters
@@ -131,16 +130,16 @@ func doIMAPStartTLS(nc net.Conn, spec string, config *tls.Config) ([]*x509.Certi
 	nc.SetDeadline(time.Now().Add(TSTARTTLS))
 	_, err = conn.Cmd("1 STARTTLS")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	msg, err = conn.Reader.ReadLine()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if !strings.HasPrefix(msg, "1 OK") {
-		return nil, fmt.Errorf(msg)
+		return nil, nil, fmt.Errorf(msg)
 	}
 
 	// At this point, we're ready to pass the socket to the underlying TLS layer
@@ -155,29 +154,28 @@ func doIMAPStartTLS(nc net.Conn, spec string, config *tls.Config) ([]*x509.Certi
 
 	nc.SetDeadline(time.Now().Add(TNOOP))
 	if _, err = tconn.Cmd("2 NOOP"); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if _, err = tconn.Reader.ReadLine(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	cs := tc.ConnectionState()
-	ret := cs.PeerCertificates
 
 	nc.SetDeadline(time.Now().Add(TQUIT))
 	if _, err = tconn.Cmd("3 LOGOUT"); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if _, err = tconn.Reader.ReadLine(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return ret, nil
+	return cs.PeerCertificates, cs.VerifiedChains, nil
 }
 
-func doPOPStartTLS(nc net.Conn, spec string, config *tls.Config) ([]*x509.Certificate, error) {
+func doPOPStartTLS(nc net.Conn, spec string, config *tls.Config) ([]*x509.Certificate, [][]*x509.Certificate, error) {
 
 	var tconn *textproto.Conn
 	var msg string
@@ -189,16 +187,16 @@ func doPOPStartTLS(nc net.Conn, spec string, config *tls.Config) ([]*x509.Certif
 	nc.SetDeadline(time.Now().Add(TSTARTTLS))
 	_, err := conn.Cmd("STLS")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	msg, err = conn.Reader.ReadLine()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if !strings.HasPrefix(msg, "+OK") {
-		return nil, fmt.Errorf(msg)
+		return nil, nil, fmt.Errorf(msg)
 	}
 
 	// At this point, we're ready to pass the socket to the underlying TLS layer
@@ -213,26 +211,25 @@ func doPOPStartTLS(nc net.Conn, spec string, config *tls.Config) ([]*x509.Certif
 
 	nc.SetDeadline(time.Now().Add(TNOOP))
 	if _, err = tconn.Cmd("NOOP"); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if _, err = tconn.Reader.ReadLine(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	cs := tc.ConnectionState()
-	ret := cs.PeerCertificates
 
 	nc.SetDeadline(time.Now().Add(TQUIT))
 	if _, err = tconn.Cmd("QUIT"); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if _, err = tconn.Reader.ReadLine(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return ret, nil
+	return cs.PeerCertificates, cs.VerifiedChains, nil
 }
 
 func getGreeting(conn *textproto.Conn) (string, error) {
@@ -273,13 +270,13 @@ func getGreeting(conn *textproto.Conn) (string, error) {
 // GetValidSTARTTLSCert connects to a server, determines the underlying protocol
 // and if supported, forwards to the correct handler method. Otherwise returns
 // an appropriate error.
-func GetValidSTARTTLSCert(spec string, config *tls.Config) ([]*x509.Certificate, error) {
+func GetValidSTARTTLSCert(spec string, config *tls.Config) ([]*x509.Certificate, [][]*x509.Certificate, error) {
 
 	var msg string
 
 	nc, err := net.DialTimeout("tcp", spec, TNewConn)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	conn := textproto.NewConn(nc)
@@ -288,14 +285,14 @@ func GetValidSTARTTLSCert(spec string, config *tls.Config) ([]*x509.Certificate,
 	nc.SetDeadline(time.Now().Add(TGreeting))
 	msg, err = getGreeting(conn)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Check for known protocols and pass control to the right handler method.
 
 	if strings.Contains(msg, "SMTP") {
 		if !strings.Contains(msg, "ESMTP") {
-			return nil, ErrNoESMTP
+			return nil, nil, ErrNoESMTP
 		}
 
 		return doSMTPStartTLS(nc, spec, config)
@@ -310,31 +307,31 @@ func GetValidSTARTTLSCert(spec string, config *tls.Config) ([]*x509.Certificate,
 	}
 
 	// return nil, ErrUnsupportedSTARTTLS
-	return nil, fmt.Errorf("Unhandled response <%s>", msg)
+	return nil, nil, fmt.Errorf("Unhandled response <%s>", msg)
 }
 
 // GetValidPostgresCert connects to a SMTP server and retrieves and validates
 // the certificate obtained through a valid protocol negotiation.
-func GetValidPostgresCert(spec string, config *tls.Config) ([]*x509.Certificate, error) {
+func GetValidPostgresCert(spec string, config *tls.Config) ([]*x509.Certificate, [][]*x509.Certificate, error) {
 
 	nc, err := net.DialTimeout("tcp", spec, TNewConn)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Magic command to start TLS
 	err = binary.Write(nc, binary.BigEndian, []int32{8, 80877103})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	response := make([]byte, 1)
 	if _, err = io.ReadFull(nc, response); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if response[0] != 'S' {
-		return nil, ErrNoPostgresTLS
+		return nil, nil, ErrNoPostgresTLS
 	}
 
 	// TLS request accepted, so setup TLS and send a startup message to initialize
@@ -352,11 +349,10 @@ func GetValidPostgresCert(spec string, config *tls.Config) ([]*x509.Certificate,
 	}
 
 	if _, err := tc.Write(startupMsg.Encode(nil)); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	cs := tc.ConnectionState()
-	ret := cs.PeerCertificates
 
-	return ret, nil
+	return cs.PeerCertificates, cs.VerifiedChains, nil
 }

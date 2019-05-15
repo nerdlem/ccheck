@@ -271,7 +271,7 @@ func TestProcessCert(t *testing.T) {
 		NotAfter:  time.Now().Add(9 * 24 * time.Hour),
 	}
 
-	r := Result{}
+	r := Result{Cert: &current}
 	err := Check(&current, &r)
 
 	t.Logf("result is %s", r.String())
@@ -289,6 +289,7 @@ func TestProcessCert(t *testing.T) {
 		t.Error("current Check() should not return an error")
 	}
 
+	r.Cert = &expired
 	err = Check(&expired, &r)
 
 	t.Logf("result is %s", r.String())
@@ -307,6 +308,7 @@ func TestProcessCert(t *testing.T) {
 		t.Error("checking an expired certificate should return a suitable error")
 	}
 
+	r.Cert = &future
 	err = Check(&future, &r)
 
 	t.Logf("result is %s", r.String())
@@ -325,6 +327,7 @@ func TestProcessCert(t *testing.T) {
 		t.Error("checking an future certificate should return a suitable error")
 	}
 
+	r.Cert = nil
 	err = Check(nil, &r)
 
 	t.Logf("result is %s", r.String())

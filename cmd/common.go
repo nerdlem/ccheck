@@ -4,8 +4,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	tap "github.com/mndrix/tap-go"
@@ -14,15 +16,70 @@ import (
 )
 
 var (
-	cSpec               chan Spec
-	minDays, numWorkers int
-	expired, postgres, quiet, skipVerify,
-	behindProxy, tapRequested, jsonRequested,
-	starttls bool
+	behindProxy, expired, jsonRequested, postgres, quiet,
+	skipVerify, starttls, tapRequested bool
 	certFile, inputFile, keyFile, rootFile string
 	clientCertificates                     []tls.Certificate
+	cSpec                                  chan Spec
+	minDays, numWorkers                    int
+	protocol                               cert.Protocol = cert.PSOCKET
+	results                                []CertResult
+	rootBytes                              []byte
 	rootCertPool                           *x509.CertPool
+	specSlice                              []string
+	wg                                     sync.WaitGroup
 )
+
+func setupProtocol() {
+	protocol = cert.PSOCKET
+
+	if postgres {
+		protocol = cert.PPG
+	} else if starttls {
+		protocol = cert.PSTARTTLS
+	}
+}
+
+func setupSpecSlice(args []string) {
+
+	if len(args) == 0 && inputFile == "" {
+		fmt.Fprintf(os.Stderr, "must provide one or more endpoint specs or use --input-file\n")
+		os.Exit(2)
+	}
+
+	if inputFile == "" {
+		specSlice = args
+	} else {
+		var err error
+		specSlice, err = cert.ReadSpecSliceFromFile(inputFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "cannot read input file %s: %s\n", inputFile, err)
+		}
+	}
+}
+
+func setupRootFile() {
+
+	var err error
+
+	if rootFile == "" {
+		rootCertPool = nil
+	} else {
+		rootCertPool = x509.NewCertPool()
+
+		rootBytes, err = ioutil.ReadFile(rootFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to read root cert from %s: %s\n", rootFile, err)
+			os.Exit(2)
+		}
+
+		if !rootCertPool.AppendCertsFromPEM(rootBytes) {
+			fmt.Fprintf(os.Stderr, "failed to append certs from %s\n", rootFile)
+			os.Exit(2)
+		}
+	}
+
+}
 
 // tapOutput produces TAP formatted output. As a side effect, it also
 // updates the seenErrors counter.

@@ -16,16 +16,11 @@
 package cmd
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"sync"
 
 	"github.com/mndrix/tap-go"
-	"github.com/nerdlem/ccheck/cert"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -49,61 +44,15 @@ Go dial string.`,
 	Args: cobra.MinimumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
 		seenErrors = 0
-		var specSlice []string
-		var results []CertResult
-		var wg sync.WaitGroup
-		protocol := cert.PSOCKET
-
-		if len(args) == 0 && inputFile == "" {
-			fmt.Fprintf(os.Stderr, "must provide one or more endpoint specs or use --input-file\n")
-			os.Exit(2)
-		}
 
 		if jsonRequested && tapRequested {
 			fmt.Fprintf(os.Stderr, "only one of --tap and --json can be specified\n")
 			os.Exit(2)
 		}
 
-		if rootFile == "" {
-			rootCertPool = nil
-		} else {
-			rootCertPool = x509.NewCertPool()
-
-			rootBytes, err := ioutil.ReadFile(rootFile)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to read root cert from %s: %s\n", rootFile, err)
-				os.Exit(2)
-			}
-
-			if !rootCertPool.AppendCertsFromPEM(rootBytes) {
-				fmt.Fprintf(os.Stderr, "failed to append certs from %s\n", rootFile)
-				os.Exit(2)
-			}
-		}
-
-		if certFile == "" && keyFile == "" {
-			// Do nothing -- this is the case where no client certs are to be used.
-		} else if certFile != "" && keyFile != "" {
-			cc, err := tls.LoadX509KeyPair(certFile, keyFile)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to load client certificate/key pair: %s\n", err)
-				os.Exit(2)
-			}
-			clientCertificates = []tls.Certificate{cc}
-		} else {
-			fmt.Fprintf(os.Stderr, "must specify either both --cert-file and --key-file; or none\n")
-			os.Exit(2)
-		}
-
-		if inputFile == "" {
-			specSlice = args
-		} else {
-			var err error
-			specSlice, err = cert.ReadSpecSliceFromFile(inputFile)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "cannot read input file %s: %s\n", inputFile, err)
-			}
-		}
+		setupRootFile()
+		setupSpecSlice(args)
+		setupProtocol()
 
 		consumer := simpleOutput
 
@@ -111,12 +60,6 @@ Go dial string.`,
 			consumer = tapOutput
 		} else if jsonRequested {
 			consumer = jsonCollector
-		}
-
-		if postgres {
-			protocol = cert.PPG
-		} else if starttls {
-			protocol = cert.PSTARTTLS
 		}
 
 		cSpec = setupWorkers(consumer)

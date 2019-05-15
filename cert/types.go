@@ -25,6 +25,10 @@ type Result struct {
 	// CertSerial is a string representation of the certificate's serial, so that
 	// it can be properly returned by compliant JSON processors
 	CertSerial string `json:"cert_serial"`
+	// PeerCertificates mirrors tls.ConnectionState.PeerCertificates
+	PeerCertificates *[]*x509.Certificate `json:"peer_certificates"`
+	// VerifiedChains mirrors tls.ConnectionState.VerifiedChains
+	VerifiedChains *[][]*x509.Certificate `json:"verified_chains"`
 }
 
 // Protocol is used to encode the protocol to use to get TLS certificates from
