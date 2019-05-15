@@ -144,6 +144,38 @@ ok 1 - babar.elephantsql.com:5432 expires in 1647 days (took 0.427 secs)
 1..1
 ```
 
+### Dump certificate chain
+
+The `chain` command provides a friendly text representation of the certificate chain sent by the TLS server, helpful for auditing certificate lineage.
+
+```
+$ ccheck chain www.google.com:443
+* spec www.google.com:443
+  [chain 0]
+    [cert 0.0]
+      Subject: CN=www.google.com,O=Google LLC,L=Mountain View,ST=California,C=US
+      Issuer: CN=Google Internet Authority G3,O=Google Trust Services,C=US
+      Serial: 126424242915129058616365655790524652180
+      Dates: 2019-04-16 09:58:34 +0000 UTC to 2019-07-09 09:52:00 +0000 UTC
+      Signature Algorithm: SHA256-RSA
+      CA: false
+        DNS: www.google.com
+    [cert 0.1]
+      Subject: CN=Google Internet Authority G3,O=Google Trust Services,C=US
+      Issuer: CN=GlobalSign,OU=GlobalSign Root CA - R2,O=GlobalSign
+      Serial: 149685795415515161014990164765
+      Dates: 2017-06-15 00:00:42 +0000 UTC to 2021-12-15 00:00:42 +0000 UTC
+      Signature Algorithm: SHA256-RSA
+      CA: true
+    [cert 0.2]
+      Subject: CN=GlobalSign,OU=GlobalSign Root CA - R2,O=GlobalSign
+      Issuer: CN=GlobalSign,OU=GlobalSign Root CA - R2,O=GlobalSign
+      Serial: 4835703278459682885658125
+      Dates: 2006-12-15 08:00:00 +0000 UTC to 2021-12-15 08:00:00 +0000 UTC
+      Signature Algorithm: SHA1-RSA
+      CA: true
+```
+
 ### Specify list of certificates to check via a file
 
 To ease testing, a list of certificate specs can be placed on a file:
