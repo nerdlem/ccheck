@@ -29,6 +29,12 @@ type Result struct {
 	PeerCertificates *[]*x509.Certificate `json:"peer_certificates"`
 	// VerifiedChains mirrors tls.ConnectionState.VerifiedChains
 	VerifiedChains *[][]*x509.Certificate `json:"verified_chains"`
+	// TLSVersion provides a human readable (i.e. "TLSv1.1") of the protocol that
+	// was negotiated. In situations where no TLS was used (i.e., when reading a
+	// certificate from disk) the value will be the empry string.
+	TLSVersion string `json:"tls_version"`
+	// String representation of the cipher suite used for the connection.
+	CipherSuite string `json:"cipher_suite"`
 }
 
 // Protocol is used to encode the protocol to use to get TLS certificates from

@@ -55,6 +55,47 @@ func ProcessCert(spec string, config *tls.Config, p Protocol) (Result, error) {
 				return Result{Success: false, DaysLeft: -1, Delay: time.Now().Sub(start)}, ErrNoCerts
 			}
 
+			switch state.Version {
+			case tls.VersionSSL30:
+				r.TLSVersion = "SSL-3.0"
+			case tls.VersionTLS10:
+				r.TLSVersion = "TLS-1.0"
+			case tls.VersionTLS11:
+				r.TLSVersion = "TLS-1.1"
+			case tls.VersionTLS12:
+				r.TLSVersion = "TLS-1.2"
+			// When TLS-1.3 support is here...
+			// case tls.VersionTLS13:
+			case 0x0304:
+				r.TLSVersion = "TLS-1.3"
+			default:
+				r.TLSVersion = fmt.Sprintf("(Unknown version %d)", state.Version)
+			}
+
+			switch state.CipherSuite {
+			// These are for TLS 1.3
+			// case tls.TLS_AES_128_GCM_SHA256:
+			// 	r.CipherSuite = "TLS_AES_128_GCM_SHA256"
+			// case tls.TLS_AES_256_GCM_SHA384:
+			// 	r.CipherSuite = "TLS_AES_256_GCM_SHA384"
+			// case tls.TLS_CHACHA20_POLY1305_SHA256:
+			// 	r.CipherSuite = "TLS_CHACHA20_POLY1305_SHA256"
+			case tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:
+				r.CipherSuite = "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"
+			case tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:
+				r.CipherSuite = "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"
+			case tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305:
+				r.CipherSuite = "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305"
+			case tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:
+				r.CipherSuite = "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+			case tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:
+				r.CipherSuite = "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+			case tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305:
+				r.CipherSuite = "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"
+			default:
+				r.CipherSuite = fmt.Sprintf("Cipersuite %d", state.CipherSuite)
+			}
+
 			r.PeerCertificates = &state.PeerCertificates
 			r.VerifiedChains = &state.VerifiedChains
 

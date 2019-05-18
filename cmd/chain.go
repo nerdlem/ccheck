@@ -38,6 +38,14 @@ func chainOutput(c <-chan CertResult) {
 
 		fmt.Printf("* spec %s\n", r.Spec)
 
+		if r.Result.TLSVersion != "" {
+			fmt.Printf("  TLS version: %s\n", r.Result.TLSVersion)
+		}
+
+		if r.Result.CipherSuite != "" {
+			fmt.Printf("  Cipher suite: %s\n", r.Result.CipherSuite)
+		}
+
 		for i, ch := range *r.Result.VerifiedChains {
 			fmt.Printf("  [chain %d]\n", i)
 			for j, ce := range ch {
