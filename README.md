@@ -1,4 +1,4 @@
-[![GoDoc](https://godoc.org/github.com/nerdlem/tlsa?status.svg)](https://godoc.org/github.com/nerdlem/ccheck)
+[![GoDoc](https://godoc.org/github.com/nerdlem/ccheck?status.svg)](https://godoc.org/github.com/nerdlem/ccheck)
 [![Go Report Card](https://goreportcard.com/badge/github.com/nerdlem/ccheck)](https://goreportcard.com/report/github.com/nerdlem/ccheck)
 [![Build Status](https://travis-ci.org/nerdlem/ccheck.svg?branch=master)](https://travis-ci.org/nerdlem/ccheck)
 
