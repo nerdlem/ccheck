@@ -2,13 +2,10 @@ sudo: false
 language: go
 go:
   - 1.10.x
+  - 1.11.x
   - master
 matrix:
   allow_failures:
     - go: master
   fast_finish: true
-script:
-  - go get -t -v ./...
-  - diff -u <(echo -n) <(gofmt -d -s .)
-  - go tool vet .
   
