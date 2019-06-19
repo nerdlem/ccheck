@@ -76,10 +76,6 @@ var ErrNil = fmt.Errorf("nil certificate")
 // the given spec
 var ErrNoCerts = fmt.Errorf("no certificates to process")
 
-// ErrNoESMTP indicates that the SMTP server does not support ESMTP, so no
-// STARTTLS is even attempted
-var ErrNoESMTP = fmt.Errorf("SMTP server does not speak ESMTP")
-
 // ErrNoSTARTTLS indicates that the remote server does not advertise STARTTLS
 // support
 var ErrNoSTARTTLS = fmt.Errorf("Remote server does not announce STARTTLS")

@@ -290,11 +290,7 @@ func GetValidSTARTTLSCert(spec string, config *tls.Config) ([]*x509.Certificate,
 
 	// Check for known protocols and pass control to the right handler method.
 
-	if strings.Contains(msg, "SMTP") {
-		if !strings.Contains(msg, "ESMTP") {
-			return nil, nil, ErrNoESMTP
-		}
-
+	if strings.HasPrefix(msg, "220") {
 		return doSMTPStartTLS(nc, spec, config)
 	}
 
