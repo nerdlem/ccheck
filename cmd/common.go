@@ -59,18 +59,21 @@ func setupSpecSlice(args []string) {
 }
 
 func setupClientCertificates() {
-	if (certFile != "" || keyFile != "") && (certFile == "" || keyFile == "") {
-		fmt.Fprintf(os.Stderr, "must specify certificate and key file together\n")
-		os.Exit(2)
-	}
 
-	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error loading client cert / key: %s\n", err)
-		os.Exit(2)
-	}
+	if certFile != "" || keyFile != "" {
+		if (certFile != "" || keyFile != "") && (certFile == "" || keyFile == "") {
+			fmt.Fprintf(os.Stderr, "must specify certificate and key file together\n")
+			os.Exit(2)
+		}
 
-	clientCertificates = append(clientCertificates, cert)
+		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error loading client cert / key: %s\n", err)
+			os.Exit(2)
+		}
+
+		clientCertificates = append(clientCertificates, cert)
+	}
 }
 
 func setupRootFile() {
