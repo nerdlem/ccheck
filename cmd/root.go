@@ -51,6 +51,7 @@ Go dial string.`,
 		}
 
 		setupRootFile()
+		setupClientCertificates()
 		setupSpecSlice(args)
 		setupProtocol()
 

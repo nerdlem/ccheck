@@ -76,6 +76,7 @@ network endpoint specification.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		setupSpecSlice(args)
 		setupRootFile()
+		setupClientCertificates()
 		setupProtocol()
 
 		cSpec = setupWorkers(chainOutput)
