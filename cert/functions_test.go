@@ -3,6 +3,7 @@ package cert
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"strings"
 	"testing"
 	"time"
 
@@ -117,7 +118,7 @@ func TestExternalHTTPS(t *testing.T) {
 
 	t.Logf("These tests need Internet connectivity")
 
-	for _, spec := range []string{"www.google.com:443", "microsoft.com:443", "apple.com:443"} {
+	for _, spec := range []string{"www.google.com:443", "microsoft.com:443", "apple.com:443", "yahoo.com"} {
 
 		t.Logf("testing spec %s", spec)
 
@@ -142,12 +143,14 @@ func TestExternalHTTPS(t *testing.T) {
 func TestESMTPSTARTTLS(t *testing.T) {
 	t.Logf("These tests need Internet connectivity")
 
-	for _, spec := range []string{"ccheck.libertad.link:587"} {
+	for _, spec := range []string{"smtp.office365.com:587", "smtp.mail.me.com"} {
 
 		t.Logf("testing STARTTLS spec %s", spec)
 
+		host := strings.Split(spec, ":")[0]
+
 		tc := tls.Config{
-			ServerName: "ccheck.libertad.link",
+			ServerName: host,
 		}
 
 		r, err := ProcessCert(spec, &tc, PSTARTTLS)

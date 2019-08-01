@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -25,6 +26,14 @@ func unwrapError(err error, r *Result) {
 		r.Cert = hErr.Cert
 		_ = Check(r.Cert, r)
 	}
+}
+
+func maybeAddSpec(pSpec string, port int) string {
+	if strings.Contains(pSpec, ":") {
+		return pSpec
+	}
+
+	return fmt.Sprintf("%s:%d", pSpec, port)
 }
 
 // ProcessCert takes a spec certificate specification, which might be a file
@@ -45,7 +54,7 @@ func ProcessCert(spec string, config *tls.Config, p Protocol) (Result, error) {
 	case PSOCKET:
 		var conn *tls.Conn
 
-		conn, err = tls.Dial("tcp", spec, config)
+		conn, err = tls.Dial("tcp", maybeAddSpec(spec, 443), config)
 		if err == nil {
 			defer conn.Close()
 
@@ -113,7 +122,7 @@ func ProcessCert(spec string, config *tls.Config, p Protocol) (Result, error) {
 		var certs []*x509.Certificate
 		var chains [][]*x509.Certificate
 
-		certs, chains, err = GetValidSTARTTLSCert(spec, config)
+		certs, chains, err = GetValidSTARTTLSCert(maybeAddSpec(spec, 587), config)
 		if err != nil {
 			unwrapError(err, &r)
 			break
@@ -128,7 +137,7 @@ func ProcessCert(spec string, config *tls.Config, p Protocol) (Result, error) {
 		var certs []*x509.Certificate
 		var chains [][]*x509.Certificate
 
-		certs, chains, err = GetValidPostgresCert(spec, config)
+		certs, chains, err = GetValidPostgresCert(maybeAddSpec(spec, 5432), config)
 		if err != nil {
 			unwrapError(err, &r)
 			break
