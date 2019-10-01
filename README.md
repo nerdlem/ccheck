@@ -19,19 +19,20 @@ TAP-formatted test results provide output that can be captured by more elaborate
 ```
 $ ccheck --input-file certificate.list --tap --num-workers 6
 1..0
-not ok 1 - losmunoz.com:443 x509: certificate is valid for *.athena.pics, athena.pics, not losmunoz.com
-ok 2 - lem.click:443 expires in 37 days (took 0.350 secs)
-ok 3 - lem.link:443 expires in 37 days (took 0.350 secs)
-ok 4 - quad.click:443 expires in 37 days (took 0.351 secs)
-ok 5 - libertad.link:443 expires in 31 days (took 0.351 secs)
-ok 6 - esmtp.email:443 expires in 30 days (took 0.351 secs)
-ok 7 - google.com:443 expires in 67 days (took 0.053 secs)
-ok 8 - cert/google-chain.pem expires in 46 days (took 0.000 secs)
-ok 9 - allaboutworms.com:443 expires in 69 days (took 0.186 secs)
-ok 10 - outlook.com:443 expires in 638 days (took 0.152 secs)
-ok 11 - isipp.com:443 expires in 69 days (took 0.186 secs)
-ok 12 - suretymail.com:443 expires in 69 days (took 0.187 secs)
-ok 13 - tupsiquiatra.expert:443 expires in 31 days (took 0.244 secs)
+not ok 1 - losmunoz.com:443 x509: certificate is valid for *.athena.pics, athena.pics, not losmunoz.com TLS
+ok 2 - libertad.link:443 expires in 59 days (took 0.384 secs) TLS
+ok 3 - esmtp.email:443 expires in 59 days (took 0.384 secs) TLS
+ok 4 - lem.click:443 expires in 64 days (took 0.384 secs) TLS
+ok 5 - lem.link:443 expires in 64 days (took 0.384 secs) TLS
+ok 6 - quad.click:443 expires in 70 days (took 0.384 secs) TLS
+ok 7 - google.com:443 expires in 58 days (took 0.181 secs) TLS
+not ok 8 - cert/google-chain.pem certififcate is expired TLS
+ok 9 - allaboutworms.com:443 expires in 39 days (took 0.291 secs) TLS
+ok 10 - outlook.com:443 expires in 414 days (took 0.249 secs) TLS
+ok 11 - tupsiquiatra.expert:443 expires in 59 days (took 0.276 secs) TLS
+ok 12 - isipp.com:443 expires in 39 days (took 0.283 secs) TLS
+ok 13 - suretymail.com:443 expires in 39 days (took 0.283 secs) TLS
+1..13
 ```
 
 ### JSON support
@@ -39,7 +40,7 @@ ok 13 - tupsiquiatra.expert:443 expires in 31 days (took 0.244 secs)
 Output can be produced in JSON. Each spec provided in the command line will generate an entry in an array, with all available test information.
 
 ```
-$ccheck --json --starttls outlook.office365.com:110
+$ ccheck --json --starttls outlook.office365.com:110
 [{"spec":"outlook.office365.com:110","result":{"success":true,"days_left":705,"cert":{"Raw":"MIIIszCCB5u⋯
 ⋮
 ```
@@ -50,7 +51,7 @@ Check whether a given certificate will expire _soon_, or within 10,000 days as i
 
 ```
 $ ccheck --min-days 10000 google.com:443 || echo The end is near
-google.com:443: expires in 1160 days
+google.com:443: expires in 58 days, TLS
 The end is near
 ```
 
@@ -61,13 +62,12 @@ Specifying 0 days with `--min-days` disables the expiration checking.
 By default, `ccheck` verifies that the certificate is valid for the domain name being used for testing. This can be disabled with the `--skip-verify` option:
 
 ```
-$ go run main.go losmunoz.com:443 || echo failed
-losmunoz.com:443: x509: certificate is valid for *.athena.pics, athena.pics, not losmunoz.com
-exit status 2
+$ ccheck losmunoz.com:443 || echo failed
+losmunoz.com:443: x509: certificate is valid for *.athena.pics, athena.pics, not losmunoz.com, TLS
 failed
 
-$ go run main.go --skip-verify losmunoz.com:443 || echo failed
-losmunoz.com:443
+$ ccheck --skip-verify losmunoz.com:443 || echo failed
+losmunoz.com:443 TLS
 ```
 
 ### Custom client certificate, custom Root CA processing
@@ -77,12 +77,12 @@ The `--client-cert` and `--client-key` allows for the specification of a custom 
 ```
 $ ccheck --tap my.server:9990
 1..0
-not ok 1 - my.server:9990 remote error: tls: handshake failure
+not ok 1 - my.server:9990 remote error: tls: handshake failure TLS
 exit status 2
 
 $ ccheck --tap --client-cert client.crt --client-key client.pem my.server:9990
 1..0
-ok 1 - my.server:9990 expires in 117 days (took 0.059 secs)
+ok 1 - my.server:9990 expires in 117 days (took 0.059 secs) TLS
 ```
 
 `--root-certs` allows for specifying custom root CA certificates for validation of the received server certificate.
@@ -90,7 +90,7 @@ ok 1 - my.server:9990 expires in 117 days (took 0.059 secs)
 ```
 $ ccheck --tap --root-certs my-custom-CA.crt www.google.com:443
 1..0
-not ok 1 - www.google.com:443 x509: certificate signed by unknown authority
+not ok 1 - www.google.com:443 x509: certificate signed by unknown authority TLS
 exit status 2
 ```
 
@@ -100,7 +100,7 @@ Certificates can also be placed in local files:
 
 ```
 $ ccheck ./cert/google-chain.pem && echo all is fine
-./cert/google-chain.pem
+./cert/google-chain.pem TLS
 all is fine
 ```
 
@@ -117,10 +117,10 @@ When using the `--starttls` command line option, `ccheck` will assume a connecti
 ```
 $ ccheck --num-workers 10 --tap --starttls smtp.outlook.com:587 smtp.gmail.com:587 mx.libertad.link:587 mail.gmx.com:587
 TAP version 13
-ok 1 - smtp.gmail.com:587 expires in 63 days (took 0.820 secs)
-ok 2 - mx.libertad.link:587 expires in 46 days (took 1.837 secs)
-ok 3 - mail.gmx.com:587 expires in 446 days (took 2.499 secs)
-ok 4 - smtp.outlook.com:587 expires in 726 days (took 5.841 secs)
+ok 1 - smtp.gmail.com:587 expires in 63 days (took 0.820 secs) TLS
+ok 2 - mx.libertad.link:587 expires in 46 days (took 1.837 secs) TLS
+ok 3 - mail.gmx.com:587 expires in 446 days (took 2.499 secs) TLS
+ok 4 - smtp.outlook.com:587 expires in 726 days (took 5.841 secs) TLS
 1..4
 ```
 
@@ -131,7 +131,7 @@ The `--postgres` command line flag instructs `ccheck` to treat the connection co
 ```
 $ ccheck --tap --postgres babar.elephantsql.com:5432
 TAP version 13
-not ok 1 - babar.elephantsql.com:5432 x509: certificate is valid for ip-10-164-15-12.ec2.internal, not babar.elephantsql.com
+not ok 1 - babar.elephantsql.com:5432 x509: certificate is valid for ip-10-164-15-12.ec2.internal, not babar.elephantsql.com TLS
 1..1
 ```
 
@@ -140,7 +140,7 @@ In the case above, the TLS certificate does not match the host name, so normal v
 ```
 $ ccheck --tap --skip-verify --postgres babar.elephantsql.com:5432
 TAP version 13
-ok 1 - babar.elephantsql.com:5432 expires in 1647 days (took 0.427 secs)
+ok 1 - babar.elephantsql.com:5432 expires in 1647 days (took 0.427 secs) TLS
 1..1
 ```
 
@@ -182,19 +182,19 @@ To ease testing, a list of certificate specs can be placed on a file:
 
 ```
 $ ccheck --input-file certificate.list
-lem.click:443
-lem.link:443
-losmunoz.com:443: x509: certificate is valid for *.athena.pics, athena.pics, not losmunoz.com
-quad.click:443
-esmtp.email:443
-libertad.link:443
-allaboutworms.com:443
-google.com:443
-isipp.com:443
-outlook.com:443
-suretymail.com:443
-tupsiquiatra.expert:443
-cert/google-chain.pem
+lem.click:443 TLS
+lem.link:443 TLS
+losmunoz.com:443: x509: certificate is valid for *.athena.pics, athena.pics, not losmunoz.com TLS
+quad.click:443 TLS
+esmtp.email:443 TLS
+libertad.link:443 TLS
+allaboutworms.com:443 TLS
+google.com:443 TLS
+isipp.com:443 TLS
+outlook.com:443 TLS
+suretymail.com:443 TLS
+tupsiquiatra.expert:443 TLS
+cert/google-chain.pem TLS
 ```
 
 ### Parallel checks for faster processing
