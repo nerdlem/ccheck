@@ -48,7 +48,7 @@ func ProcessCert(spec string, config *tls.Config, p Protocol) (Result, error) {
 		return ReadFromFile(spec)
 	}
 
-	r := Result{Success: false, Expired: false, DaysLeft: -1, Delay: 0 * time.Second}
+	r := Result{Protocol: p, Success: false, Expired: false, DaysLeft: -1, Delay: 0 * time.Second}
 
 	switch p {
 	case PSOCKET:

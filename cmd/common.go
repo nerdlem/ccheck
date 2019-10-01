@@ -122,15 +122,16 @@ func tapOutput(c <-chan CertResult) {
 
 		if minDays != 0 {
 			if minDays > r.Result.DaysLeft {
-				t.Fail(fmt.Sprintf("%s expires in %d days (took %0.3f secs)",
-					r.Spec, r.Result.DaysLeft, r.Result.Delay.Seconds()))
+				t.Fail(fmt.Sprintf("%s expires in %d days (took %0.3f secs) %s",
+					r.Spec, r.Result.DaysLeft, r.Result.Delay.Seconds(), r.Result.Protocol.String()))
 				seenErrors++
 			} else {
-				t.Pass(fmt.Sprintf("%s expires in %d days (took %0.3f secs)",
-					r.Spec, r.Result.DaysLeft, r.Result.Delay.Seconds()))
+				t.Pass(fmt.Sprintf("%s expires in %d days (took %0.3f secs) %s",
+					r.Spec, r.Result.DaysLeft, r.Result.Delay.Seconds(), r.Result.Protocol.String()))
 			}
 		} else {
-			t.Pass(fmt.Sprintf("%s not expired (took %0.3f secs)", r.Spec, r.Result.Delay.Seconds()))
+			t.Pass(fmt.Sprintf("%s not expired (took %0.3f secs) %s", r.Spec, r.Result.Delay.Seconds(),
+				r.Result.Protocol.String()))
 		}
 		r.WG.Done()
 	}
@@ -143,14 +144,14 @@ func tapOutput(c <-chan CertResult) {
 func simpleOutput(c <-chan CertResult) {
 	for r := range c {
 		if r.Err != nil {
-			fmt.Fprintf(os.Stderr, "%s: %s\n", r.Spec, r.Err)
+			fmt.Fprintf(os.Stderr, "%s: %s, %s\n", r.Spec, r.Err, r.Result.Protocol.String())
 			seenErrors++
 			r.WG.Done()
 			continue
 		}
 
 		if !r.Result.Success {
-			fmt.Fprintf(os.Stderr, "%s: failed\n", r.Spec)
+			fmt.Fprintf(os.Stderr, "%s: failed, %s\n", r.Spec, r.Result.Protocol.String())
 			seenErrors++
 			r.WG.Done()
 			continue
@@ -158,10 +159,10 @@ func simpleOutput(c <-chan CertResult) {
 
 		if minDays != 0 {
 			if minDays > r.Result.DaysLeft {
-				fmt.Fprintf(os.Stderr, "%s: expires in %d days\n", r.Spec, r.Result.DaysLeft)
+				fmt.Fprintf(os.Stderr, "%s: expires in %d days, %s\n", r.Spec, r.Result.DaysLeft, r.Result.Protocol.String())
 				if expired {
 					if !quiet {
-						fmt.Printf("%s\n", r.Spec)
+						fmt.Printf("%s %s\n", r.Spec, r.Result.Protocol.String())
 					}
 				} else {
 					seenErrors++
@@ -172,7 +173,7 @@ func simpleOutput(c <-chan CertResult) {
 		}
 
 		if !quiet && !expired {
-			fmt.Printf("%s\n", r.Spec)
+			fmt.Printf("%s %s\n", r.Spec, r.Result.Protocol.String())
 		}
 
 		r.WG.Done()

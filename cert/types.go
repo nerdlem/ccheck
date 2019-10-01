@@ -9,6 +9,8 @@ import (
 
 // Result encodes the result of validating a Certificate
 type Result struct {
+	// Protocol is the protocol used for validation
+	Protocol Protocol `json:"protocol"`
 	// Success indicates whether the checking was successful or not.
 	Success bool `json:"success"`
 	// DaysLeft indicates the difference between current time and expiration date
@@ -50,6 +52,20 @@ const (
 	// PPG is a PostgreSQL session
 	PPG
 )
+
+// String satisfies the Stringer interface
+func (p *Protocol) String() string {
+	switch *p {
+	case PSOCKET:
+		return "TLS"
+	case PSTARTTLS:
+		return "STARTTLS"
+	case PPG:
+		return "Pg"
+	default:
+		return "???"
+	}
+}
 
 // String satisfies the Stringer interface
 func (r *Result) String() string {
