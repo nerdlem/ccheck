@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/pgproto3"
+	"github.com/jackc/pgproto3"
 )
 
 func doSMTPStartTLS(nc net.Conn, spec string, config *tls.Config) ([]*x509.Certificate, [][]*x509.Certificate, error) {
