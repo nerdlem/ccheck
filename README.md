@@ -131,7 +131,7 @@ The `--postgres` command line flag instructs `ccheck` to treat the connection co
 ```
 $ ccheck --tap --postgres babar.elephantsql.com:5432
 TAP version 13
-not ok 1 - babar.elephantsql.com:5432 x509: certificate is valid for ip-10-164-15-12.ec2.internal, not babar.elephantsql.com TLS
+not ok 1 - babar.elephantsql.com:5432 x509: certificate is valid for ip-10-164-15-12.ec2.internal, not babar.elephantsql.com Pg
 1..1
 ```
 
@@ -140,7 +140,7 @@ In the case above, the TLS certificate does not match the host name, so normal v
 ```
 $ ccheck --tap --skip-verify --postgres babar.elephantsql.com:5432
 TAP version 13
-ok 1 - babar.elephantsql.com:5432 expires in 1647 days (took 0.427 secs) TLS
+ok 1 - babar.elephantsql.com:5432 expires in 1647 days (took 0.427 secs) Pg
 1..1
 ```
 
