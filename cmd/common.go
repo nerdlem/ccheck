@@ -107,14 +107,14 @@ func tapOutput(c <-chan CertResult) {
 
 	for r := range c {
 		if r.Err != nil {
-			t.Fail(fmt.Sprintf("%s %s", r.Spec, r.Err))
+			t.Fail(fmt.Sprintf("%s %s %s", r.Spec, r.Err, r.Result.Protocol.String()))
 			seenErrors++
 			r.WG.Done()
 			continue
 		}
 
 		if !r.Result.Success {
-			t.Fail(fmt.Sprintf("%s failed (took %0.3f secs)", r.Spec, r.Result.Delay.Seconds()))
+			t.Fail(fmt.Sprintf("%s failed (took %0.3f secs) %s", r.Spec, r.Result.Delay.Seconds(), r.Result.Protocol.String()))
 			seenErrors++
 			r.WG.Done()
 			continue
