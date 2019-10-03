@@ -214,3 +214,9 @@ real	0m0.595s
 user	0m0.092s
 sys	0m0.026s
 ```
+
+### Munin plugin mode
+
+By simply adding a symbolic link from your `/etc/munin/plugins` directory to `ccheck`, a configuration file can take care of checking all your certificates with a handy graph and email when expiration – or an error – shows up. See the accompanying `ccheck-munin.conf` file for more information on how to configure your automatic tests.
+
+`ccheck` detects it's being run by `munin-node` by looking for the `MUNIN_VERSION` environment variable.
