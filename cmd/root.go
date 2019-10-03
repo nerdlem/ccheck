@@ -116,14 +116,9 @@ func muninRoot(args []string) {
 	keyFile = os.Getenv("client_key")
 	rootFile = os.Getenv("root_certs")
 
-	if len(args) > 1 {
-		fmt.Fprintf(os.Stderr, "Munin mode takes only a single argument\n")
-		os.Exit(2)
-	}
-
 	specs := muninGetSpecs()
 
-	if len(args) == 1 {
+	if len(args) > 0 {
 		switch args[0] {
 		case "config":
 			fmt.Printf(`graph_args --base 1000 -l 0 -u %[2]d
