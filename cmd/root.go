@@ -161,12 +161,7 @@ graph_vlabel Days left
 
 	close(cSpec)
 	wg.Wait()
-
-	if seenErrors > 0 {
-		os.Exit(2)
-	} else {
-		os.Exit(0)
-	}
+	os.Exit(0)
 }
 
 func defaultRoot(args []string) {
