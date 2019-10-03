@@ -139,6 +139,32 @@ func tapOutput(c <-chan CertResult) {
 	t.AutoPlan()
 }
 
+// muninOutput produces the output expected by munin-node when polling.
+func muninOutput(c <-chan CertResult) {
+	for r := range c {
+		l := muninLabel(r.Result.Protocol, r.Spec)
+
+		if r.Err != nil {
+			fmt.Printf("%s.value U\n", l)
+			fmt.Printf("%s.extinfo %s\n", l, r.ErrString)
+			seenErrors++
+			r.WG.Done()
+			continue
+		}
+
+		if !r.Result.Success {
+			fmt.Printf("%s.value U\n", l)
+			seenErrors++
+			r.WG.Done()
+			continue
+		}
+
+		fmt.Printf("%s.value %d\n", l, r.Result.DaysLeft)
+		r.WG.Done()
+		continue
+	}
+}
+
 // simpleOutput produces a simple output format. As a side effect, it also
 // updates the seenErrors counter.
 func simpleOutput(c <-chan CertResult) {
@@ -182,11 +208,11 @@ func simpleOutput(c <-chan CertResult) {
 
 // setupWorkers launches the required number of workers as per the configuration
 // / CLI arguments, setting up the required channels.
-func setupWorkers(cons Consumer) chan Spec {
+func setupWorkers(cons Consumer, n int) chan Spec {
 	cSpec = make(chan Spec, 100)
 	cCert := make(chan CertResult, 100)
 
-	for i := 0; i < viper.GetInt("check.workers"); i++ {
+	for i := 0; i < n; i++ {
 		go processWorker(cSpec, cCert)
 	}
 
@@ -235,7 +261,12 @@ func initConfig() {
 // processWorker processes a spec concurrently
 func processWorker(s <-chan Spec, c chan<- CertResult) {
 	for spec := range s {
-		cr := CertResult{Accumulator: spec.Accumulator, Spec: spec.Value, Timestamp: time.Now().UTC().Format("2006-01-02 15:04:05 MST"), WG: spec.WG}
+		cr := CertResult{
+			Accumulator: spec.Accumulator,
+			Spec:        spec.Value,
+			Timestamp:   time.Now().UTC().Format("2006-01-02 15:04:05 MST"),
+			WG:          spec.WG,
+		}
 		targetName := (strings.SplitN(spec.Value, ":", 2))[0]
 
 		config := tls.Config{

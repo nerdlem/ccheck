@@ -19,14 +19,183 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
+	"strconv"
+	"strings"
 
 	"github.com/mndrix/tap-go"
+	"github.com/nerdlem/ccheck/cert"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var t *tap.T
 var seenErrors int
+
+func muninGetSpecs() []Spec {
+	ret := []Spec{}
+	m := map[cert.Protocol]string{
+		cert.PPG:       "pg_spec",
+		cert.PSTARTTLS: "starttls_spec",
+		cert.PSOCKET:   "tls_spec",
+	}
+
+	for p, n := range m {
+		spec := strings.Fields(os.Getenv(n))
+		for _, s := range spec {
+			ret = append(ret, Spec{
+				Accumulator: &results,
+				Protocol:    p,
+				Value:       s,
+				WG:          &wg,
+			})
+		}
+	}
+
+	return ret
+}
+
+func muninLabel(p cert.Protocol, s string) string {
+	re := regexp.MustCompile(`[^a-zA-Z0-9]`)
+	return strings.ToLower(re.ReplaceAllLiteralString(fmt.Sprintf("v%s %s", p.String(), s), "_"))
+}
+
+func muninRoot(args []string) {
+	title := os.Getenv("title")
+	if title == "" {
+		title = "Remaining TLS Certificate Life"
+	}
+
+	category := os.Getenv("category")
+	if category == "" {
+		category = "security"
+	}
+
+	maxLife, _ := strconv.Atoi(os.Getenv("max_life"))
+	if maxLife == 0 {
+		maxLife = 90
+	}
+
+	warning, _ := strconv.Atoi(os.Getenv("warning"))
+	if warning == 0 {
+		warning = 20
+	}
+
+	critical, _ := strconv.Atoi(os.Getenv("critical"))
+	if critical == 0 {
+		critical = 5
+	}
+
+	numWorkers, _ := strconv.Atoi(os.Getenv("num_workers"))
+	if numWorkers == 0 {
+		numWorkers = 1
+	}
+
+	certFile = os.Getenv("client_cert")
+	keyFile = os.Getenv("client_key")
+	rootFile = os.Getenv("root_certs")
+
+	if len(args) > 1 {
+		fmt.Fprintf(os.Stderr, "Munin mode takes only a single argument\n")
+		os.Exit(2)
+	}
+
+	specs := muninGetSpecs()
+
+	if len(args) == 1 {
+		switch args[0] {
+		case "config":
+			fmt.Printf(`graph_args --base 1000 -l 0 -u %[2]d
+graph_category %[1]s
+graph_info Time left in the TLS certificates.
+graph_scale no
+graph_scale no
+graph_title %[5]s
+graph_vlabel Days left
+`, category, maxLife, critical, warning, title)
+
+			for _, s := range specs {
+				l := muninLabel(s.Protocol, s.Value)
+				fmt.Printf("%s.info Status of %s using %s\n", l, s.Value, s.Protocol.String())
+				fmt.Printf("%s.label %s %s\n", l, s.Protocol.String(), s.Value)
+				fmt.Printf("%s.type GAUGE\n", l)
+				fmt.Printf("%s.critical %d:\n", l, critical)
+				fmt.Printf("%s.warning %d:\n", l, warning)
+			}
+
+			os.Exit(0)
+		default:
+			fmt.Fprintf(os.Stderr, "Unhandled Munin option %s\n", args[0])
+			os.Exit(2)
+		}
+	}
+
+	setupRootFile()
+	setupClientCertificates()
+	cSpec = setupWorkers(muninOutput, numWorkers)
+	for _, s := range specs {
+		wg.Add(1)
+		cSpec <- s
+	}
+
+	close(cSpec)
+	wg.Wait()
+
+	if seenErrors > 0 {
+		os.Exit(2)
+	} else {
+		os.Exit(0)
+	}
+}
+
+func defaultRoot(args []string) {
+	seenErrors = 0
+	consumer := simpleOutput
+
+	setupSpecSlice(args)
+
+	if tapRequested {
+		consumer = tapOutput
+	} else if jsonRequested {
+		consumer = jsonCollector
+	}
+
+	cSpec = setupWorkers(consumer, viper.GetInt("check.workers"))
+
+	for _, spec := range specSlice {
+		wg.Add(1)
+		cSpec <- Spec{
+			Accumulator: &results,
+			Protocol:    protocol,
+			Value:       spec,
+			WG:          &wg,
+		}
+	}
+
+	close(cSpec)
+
+	wg.Wait()
+
+	if tapRequested && t != nil {
+		t.AutoPlan()
+	}
+
+	if jsonRequested {
+		b, err := json.Marshal(results)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error marshaling JSON result: %s", err)
+			os.Exit(2)
+		}
+
+		fmt.Println(string(b))
+	}
+
+	if seenErrors > 0 {
+		os.Exit(2)
+	} else {
+		os.Exit(0)
+	}
+}
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
@@ -43,61 +212,20 @@ container for the X.509 certificate or a <host:port> tuple resembling a
 Go dial string.`,
 	Args: cobra.MinimumNArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
-		seenErrors = 0
+		setupRootFile()
+		setupClientCertificates()
+		setupProtocol()
+
+		if os.Getenv("MUNIN_VERSION") != "" {
+			muninRoot(args)
+		}
 
 		if jsonRequested && tapRequested {
 			fmt.Fprintf(os.Stderr, "only one of --tap and --json can be specified\n")
 			os.Exit(2)
 		}
 
-		setupRootFile()
-		setupClientCertificates()
-		setupSpecSlice(args)
-		setupProtocol()
-
-		consumer := simpleOutput
-
-		if tapRequested {
-			consumer = tapOutput
-		} else if jsonRequested {
-			consumer = jsonCollector
-		}
-
-		cSpec = setupWorkers(consumer)
-
-		for _, spec := range specSlice {
-			wg.Add(1)
-			cSpec <- Spec{
-				Accumulator: &results,
-				Protocol:    protocol,
-				Value:       spec,
-				WG:          &wg,
-			}
-		}
-
-		close(cSpec)
-
-		wg.Wait()
-
-		if tapRequested && t != nil {
-			t.AutoPlan()
-		}
-
-		if jsonRequested {
-			b, err := json.Marshal(results)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "error marshaling JSON result: %s", err)
-				os.Exit(2)
-			}
-
-			fmt.Println(string(b))
-		}
-
-		if seenErrors > 0 {
-			os.Exit(2)
-		} else {
-			os.Exit(0)
-		}
+		defaultRoot(args)
 	},
 }
 

@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // chainOutput produces the chain format output to STDERR
@@ -79,7 +80,7 @@ network endpoint specification.`,
 		setupClientCertificates()
 		setupProtocol()
 
-		cSpec = setupWorkers(chainOutput)
+		cSpec = setupWorkers(chainOutput, viper.GetInt("check.workers"))
 
 		for _, spec := range specSlice {
 			wg.Add(1)

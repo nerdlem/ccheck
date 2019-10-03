@@ -146,7 +146,7 @@ var serverCmd = &cobra.Command{
 			WriteTimeout: viper.GetDuration("server.http_write"),
 		}
 
-		cSpec = setupWorkers(jsonCollector)
+		cSpec = setupWorkers(jsonCollector, viper.GetInt("check.workers"))
 
 		log.Fatal(srv.ListenAndServe())
 	},
