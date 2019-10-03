@@ -50,6 +50,27 @@ func muninGetSpecs() []Spec {
 				WG:          &wg,
 			})
 		}
+
+		var err error
+		fName := os.Getenv(fmt.Sprintf("%s_list", n))
+		if fName == "" {
+			continue
+		}
+
+		spec, err = cert.ReadSpecSliceFromFile(fName)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "cannot read requested cert list %s: %s\n", fName, err)
+			os.Exit(2)
+		}
+
+		for _, s := range spec {
+			ret = append(ret, Spec{
+				Accumulator: &results,
+				Protocol:    p,
+				Value:       s,
+				WG:          &wg,
+			})
+		}
 	}
 
 	return ret
