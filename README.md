@@ -26,7 +26,7 @@ ok 4 - lem.click:443 expires in 64 days (took 0.384 secs) TLS
 ok 5 - lem.link:443 expires in 64 days (took 0.384 secs) TLS
 ok 6 - quad.click:443 expires in 70 days (took 0.384 secs) TLS
 ok 7 - google.com:443 expires in 58 days (took 0.181 secs) TLS
-not ok 8 - cert/google-chain.pem certififcate is expired TLS
+not ok 8 - cert/google-chain.pem certificate is expired TLS
 ok 9 - allaboutworms.com:443 expires in 39 days (took 0.291 secs) TLS
 ok 10 - outlook.com:443 expires in 414 days (took 0.249 secs) TLS
 ok 11 - tupsiquiatra.expert:443 expires in 59 days (took 0.276 secs) TLS

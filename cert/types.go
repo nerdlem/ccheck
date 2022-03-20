@@ -80,7 +80,7 @@ func (r *Result) String() string {
 }
 
 // ErrExpired is returned when the certificate is found to be expired
-var ErrExpired = fmt.Errorf("certififcate is expired")
+var ErrExpired = fmt.Errorf("certificate is expired")
 
 // ErrFuture indicates that a certificate NotBefore date is in the future
 var ErrFuture = fmt.Errorf("certificate is still not valid")
