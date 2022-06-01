@@ -88,6 +88,11 @@ func TestLocal(t *testing.T) {
 func TestExternalPostgreSQL(t *testing.T) {
 	t.Logf("These tests need Internet connectivity")
 
+	if os.Getenv("EXTERNAL_TESTS") != "yes" {
+		t.Logf("Skipping test because $EXTERNAL_TESTS != yes")
+		return
+	}
+
 	for _, spec := range []string{"babar.elephantsql.com:5432"} {
 
 		t.Logf("testing spec %s", spec)
@@ -115,8 +120,12 @@ func TestExternalPostgreSQL(t *testing.T) {
 }
 
 func TestExternalHTTPS(t *testing.T) {
-
 	t.Logf("These tests need Internet connectivity")
+
+	if os.Getenv("EXTERNAL_TESTS") != "yes" {
+		t.Logf("Skipping test because $EXTERNAL_TESTS != yes")
+		return
+	}
 
 	for _, spec := range []string{"www.google.com:443", "microsoft.com:443", "apple.com:443", "yahoo.com"} {
 
@@ -142,6 +151,11 @@ func TestExternalHTTPS(t *testing.T) {
 
 func TestESMTPSTARTTLS(t *testing.T) {
 	t.Logf("These tests need Internet connectivity")
+
+	if os.Getenv("EXTERNAL_TESTS") != "yes" {
+		t.Logf("Skipping test because $EXTERNAL_TESTS != yes")
+		return
+	}
 
 	for _, spec := range []string{"smtp.office365.com:587", "smtp.mail.me.com"} {
 
@@ -174,6 +188,11 @@ func TestESMTPSTARTTLS(t *testing.T) {
 func TestIMAPSTARTTLS(t *testing.T) {
 	t.Logf("These tests need Internet connectivity")
 
+	if os.Getenv("EXTERNAL_TESTS") != "yes" {
+		t.Logf("Skipping test because $EXTERNAL_TESTS != yes")
+		return
+	}
+
 	for _, spec := range []string{"outlook.office365.com:143"} {
 
 		t.Logf("testing STARTTLS spec %s", spec)
@@ -203,6 +222,11 @@ func TestIMAPSTARTTLS(t *testing.T) {
 func TestPOPSTARTTLS(t *testing.T) {
 	t.Logf("These tests need Internet connectivity")
 
+	if os.Getenv("EXTERNAL_TESTS") != "yes" {
+		t.Logf("Skipping test because $EXTERNAL_TESTS != yes")
+		return
+	}
+
 	for _, spec := range []string{"outlook.office365.com:110"} {
 
 		t.Logf("testing STARTTLS spec %s", spec)
@@ -231,6 +255,11 @@ func TestPOPSTARTTLS(t *testing.T) {
 
 func TestESMTPSTARTTLSBadName(t *testing.T) {
 	t.Logf("These tests need Internet connectivity")
+
+	if os.Getenv("EXTERNAL_TESTS") != "yes" {
+		t.Logf("Skipping test because $EXTERNAL_TESTS != yes")
+		return
+	}
 
 	for _, spec := range []string{"ccheck.libertad.link:587"} {
 
