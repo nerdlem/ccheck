@@ -57,6 +57,16 @@ The end is near
 
 Specifying 0 days with `--min-days` disables the expiration checking.
 
+### SNI support
+
+When specifying hostnames for remote connections, the desired SNI can be added between parentheses as per the following example:
+
+```
+$ ccheck --min-days 10000 '172.217.2.206(google.com):443' || echo The end is near
+google.com:443: expires in 58 days, TLS
+The end is near
+```
+
 ### Certificate validation
 
 By default, `ccheck` verifies that the certificate is valid for the domain name being used for testing. This can be disabled with the `--skip-verify` option:
