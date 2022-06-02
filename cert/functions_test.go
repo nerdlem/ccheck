@@ -3,12 +3,35 @@ package cert
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
 )
+
+func TestUnfold(t *testing.T) {
+	var test = map[string][]string{
+		"127.0.0.1(localhost):123": []string{"localhost", "127.0.0.1:123"},
+		"(localhost)127.0.0.1:123": []string{"localhost", "127.0.0.1:123"},
+		"127.0.0.1:123(localhost)": []string{"localhost", "127.0.0.1:123"},
+		"127.0.0.1:123":            []string{"", "127.0.0.1:123"},
+		"127.0.0.1():123":          []string{"", "127.0.0.1:123"},
+		"()127.0.0.1:123":          []string{"", "127.0.0.1:123"},
+		"127.0.0.1:123()":          []string{"", "127.0.0.1:123"},
+	}
+
+	for spec, result := range test {
+		sni, out := unfoldSpec(spec)
+		if sni != result[0] {
+			t.Errorf("sni from %s was %s, not %s", spec, sni, result[0])
+		}
+		if out != result[1] {
+			t.Errorf("outspec from %s was %s, not %s", spec, out, result[1])
+		}
+	}
+}
 
 func TestList(t *testing.T) {
 	l, err := ReadSpecSliceFromFile("no-such-file")

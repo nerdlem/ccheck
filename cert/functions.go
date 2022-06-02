@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -84,17 +85,34 @@ func (r *Result) tlsMetadata(state *tls.ConnectionState) {
 
 }
 
+var sniRe = regexp.MustCompile(`\(([^)]*)\)`)
+
+func unfoldSpec(inSpec string) (sni string, outSpec string) {
+	found := sniRe.FindAllStringSubmatch(inSpec, -1)
+	if found == nil {
+		outSpec = inSpec
+	} else {
+		sni = found[0][1]
+		outSpec = sniRe.ReplaceAllString(inSpec, "")
+	}
+	return
+}
+
 // ProcessCert takes a spec certificate specification, which might be a file
 // containing a PEM certificate or a dial string to connect to and obtain the
 // certificate from.
-func ProcessCert(spec string, config *tls.Config, p Protocol) (Result, error) {
+func ProcessCert(oSpec string, config *tls.Config, p Protocol) (Result, error) {
 
 	start := time.Now()
 	var err error
 
-	if _, err = os.Stat(spec); err == nil {
-		return ReadFromFile(spec)
+	if _, err = os.Stat(oSpec); err == nil {
+		return ReadFromFile(oSpec)
 	}
+
+	var spec string
+
+	config.ServerName, spec = unfoldSpec(oSpec)
 
 	r := Result{Protocol: p, Success: false, Expired: false, DaysLeft: -1, Delay: 0 * time.Second}
 
