@@ -270,6 +270,9 @@ func init() {
 	viper.BindPFlag("tls.client_key_pem", RootCmd.PersistentFlags().Lookup("client-key"))
 	viper.BindPFlag("tls.root_certs_pem", RootCmd.PersistentFlags().Lookup("root-certs"))
 
+	viper.BindPFlag("server.postgres", RootCmd.PersistentFlags().Lookup("postgres"))
+	viper.BindPFlag("server.starttls", RootCmd.PersistentFlags().Lookup("starttls"))
+
 	viper.BindPFlag("check.workers", RootCmd.PersistentFlags().Lookup("num-workers"))
 	viper.BindPFlag("check.min_days", RootCmd.PersistentFlags().Lookup("min-days"))
 
@@ -282,6 +285,8 @@ func init() {
 	viper.SetDefault("server.http_read", "15s")
 	viper.SetDefault("server.http_write", "15s")
 	viper.SetDefault("server.prefix", "")
+	viper.SetDefault("server.postgres", "false")
+	viper.SetDefault("server.starttls", "false")
 
 	viper.SetDefault("timeout.http_idle", "30s")
 	viper.SetDefault("timeout.http_read", "15s")

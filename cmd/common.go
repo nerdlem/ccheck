@@ -33,9 +33,14 @@ var (
 func setupProtocol() {
 	protocol = cert.PSOCKET
 
-	if postgres {
+	if viper.GetBool("server.postgres") && viper.GetBool("server.starttls") {
+		fmt.Fprintf(os.Stderr, "cannot request both postgres and starttls modes\n")
+		os.Exit(2)
+	}
+
+	if viper.GetBool("server.postgres") {
 		protocol = cert.PPG
-	} else if starttls {
+	} else if viper.GetBool("server.starttls") {
 		protocol = cert.PSTARTTLS
 	}
 }
@@ -242,12 +247,12 @@ func initConfig() {
 		viper.SetConfigName("ccheck")
 	}
 
+	// If a config file is found, read it in.
+	err := viper.ReadInConfig()
+
 	viper.SetEnvPrefix("ccheck")
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
 	viper.AutomaticEnv() // read in environment variables that match
-
-	// If a config file is found, read it in.
-	err := viper.ReadInConfig()
 
 	// Try to be smart about errors
 	if err != nil {
@@ -271,7 +276,7 @@ func processWorker(s <-chan Spec, c chan<- CertResult) {
 
 		config := tls.Config{
 			Certificates:       clientCertificates,
-			InsecureSkipVerify: skipVerify,
+			InsecureSkipVerify: viper.GetBool("tls.skip-verify"),
 			RootCAs:            rootCertPool,
 			ServerName:         targetName,
 		}
