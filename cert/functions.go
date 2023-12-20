@@ -77,7 +77,7 @@ func (r *Result) tlsMetadata(state *tls.ConnectionState) {
 	case tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305:
 		r.CipherSuite = "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"
 	default:
-		r.CipherSuite = fmt.Sprintf("Cipersuite %d", state.CipherSuite)
+		r.CipherSuite = fmt.Sprintf("Ciphersuite %d", state.CipherSuite)
 	}
 
 	r.PeerCertificates = &state.PeerCertificates
