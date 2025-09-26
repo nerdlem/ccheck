@@ -90,6 +90,7 @@ var sniRe = regexp.MustCompile(`\(([^)]*)\)`)
 func unfoldSpec(inSpec string) (sni string, outSpec string) {
 	found := sniRe.FindAllStringSubmatch(inSpec, -1)
 	if found == nil {
+		sni = strings.Split(inSpec, ":")[0]
 		outSpec = inSpec
 	} else {
 		sni = found[0][1]
@@ -118,6 +119,7 @@ func ProcessCert(oSpec string, config *tls.Config, p Protocol) (Result, error) {
 
 	switch p {
 	case PSOCKET:
+
 		var conn *tls.Conn
 
 		conn, err = tls.Dial("tcp", maybeAddSpec(spec, 443), config)
