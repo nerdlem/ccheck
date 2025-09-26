@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -86,11 +85,15 @@ func setupRootFile() {
 	var err error
 
 	if rootFile == "" {
-		rootCertPool = nil
+		rootCertPool, err = x509.SystemCertPool()
+		if rootCertPool == nil {
+			fmt.Fprintf(os.Stderr, "failed to load system cert pool: %s\n", err)
+			os.Exit(2)
+		}
 	} else {
 		rootCertPool = x509.NewCertPool()
 
-		rootBytes, err = ioutil.ReadFile(rootFile)
+		rootBytes, err = os.ReadFile(rootFile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to read root cert from %s: %s\n", rootFile, err)
 			os.Exit(2)
